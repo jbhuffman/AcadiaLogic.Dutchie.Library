@@ -22,5 +22,9 @@ logs/
 # Managed by `dotnet user-secrets`; stored outside the repo by design
 secrets.json
 
+## ── Docker ─────────────────────────────────────────────────────────────────────
+# Local compose overrides (uncommitted per-machine customisations)
+docker-compose.override.yml
+
 ## ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store

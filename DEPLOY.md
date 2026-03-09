@@ -180,26 +180,56 @@ sudo systemctl start dutchie-worker
 sudo journalctl -u dutchie-worker -f
 ```
 
-### Docker
+### Docker Compose (recommended)
 
-```dockerfile
-FROM mcr.microsoft.com/dotnet/runtime:8.0
-WORKDIR /app
-COPY publish/ .
-ENTRYPOINT ["./AcadiaLogic.Dutchie.Worker"]
-```
+The repository includes a `Dockerfile` and `docker-compose.yml` at the root. The Compose file handles building, credential injection, volume mounting, and automatic restarts.
+
+**Prerequisites:** Docker Engine 24+ with the Compose plugin (`docker compose`).
+
+**First run:**
 
 ```sh
-docker build -t dutchie-worker .
-docker run -d \
-  --name dutchie-worker \
-  --env-file .env \
-  -v $(pwd)/logs:/app/logs \
-  -v $(pwd)/sync-state.json:/app/sync-state.json \
-  dutchie-worker
+# 1. Create your credentials file from the template
+cp .env.example .env
+#    Fill in .env with your Dutchie and Intacct credentials
+
+# 2. Build and start in the background
+docker compose up -d --build
+
+# 3. Tail live logs
+docker compose logs -f
 ```
 
-> **Note:** Mount `logs/` and `sync-state.json` as volumes to persist log files and the sync watermark across container restarts.
+The Compose file creates two named volumes automatically:
+
+- `dutchie-logs` — NLog rolling files (`logs/dutchie-worker.log`, `logs/dutchie-errors.log`)
+- `dutchie-data` — sync watermark file (`sync-state.json`)
+
+Both volumes persist across container restarts and image rebuilds.
+
+**Per-machine overrides (optional):**
+
+If you need to change settings locally without modifying the committed `docker-compose.yml`, create a `docker-compose.override.yml` file (excluded from git):
+
+```yaml
+services:
+  dutchie-worker:
+    environment:
+      WORKER__CLOSINGREPORTINTERVAL: "12:00:00"
+```
+
+Docker Compose merges override files automatically.
+
+**Useful commands:**
+
+```sh
+docker compose ps                     # service status and health
+docker compose logs -f dutchie-worker # live log tail
+docker compose stop                   # graceful stop
+docker compose start                  # restart stopped container
+docker compose down                   # stop and remove container (volumes preserved)
+docker compose down -v                # stop, remove container AND volumes (clears state)
+```
 
 ---
 
@@ -221,7 +251,16 @@ docker run -d \
 
 ## Updating
 
-### Update the worker binary
+### Update the worker (Docker Compose)
+
+```sh
+git pull
+docker compose up -d --build
+```
+
+Compose rebuilds the image from the updated source and restarts the container in place. The named volumes (`dutchie-logs`, `dutchie-data`) are untouched.
+
+### Update the worker (direct binary)
 
 1. Publish the new version.
 2. Stop the service.

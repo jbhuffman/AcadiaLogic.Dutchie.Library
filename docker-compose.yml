@@ -1,0 +1,46 @@
+services:
+
+  dutchie-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: acadialogic/dutchie-worker:latest
+    container_name: dutchie-worker
+    restart: unless-stopped
+
+    # Credentials and environment overrides.
+    # Copy .env.example → .env and fill in values before running.
+    # Real environment variables set here or in the host always win over .env.
+    env_file:
+      - .env
+
+    # Override any appsettings.json value via environment variable.
+    # Remove or comment out lines you don't need to change from the defaults.
+    environment:
+      # Worker schedule (TimeSpan format h:mm:ss)
+      WORKER__CLOSINGREPORTINTERVAL: "24:00:00"
+      WORKER__CLOSINGREPORTLOOKBACK: "24:00:00"
+      WORKER__TRANSACTIONSYNCINTERVAL: "00:15:00"
+      WORKER__SYNCSTATEFILE: "/data/sync-state.json"
+      # Dutchie base URL (rarely needs changing)
+      DUTCHIE__BASEURL: "https://api.pos.dutchie.com"
+
+    volumes:
+      # Persist log files across container restarts
+      - dutchie-logs:/app/logs
+      # Persist incremental sync watermark across container restarts
+      - dutchie-data:/data
+
+    # Health check: confirm the process is still running
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "AcadiaLogic.Dutchie.Worker.dll"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  dutchie-logs:
+    driver: local
+  dutchie-data:
+    driver: local

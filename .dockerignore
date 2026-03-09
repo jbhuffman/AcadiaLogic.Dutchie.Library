@@ -1,0 +1,33 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# Credentials and secrets — never send to Docker build context
+.env
+secrets.json
+
+# Runtime state — not part of the image
+sync-state.json
+logs/
+
+# IDE and OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+*.user
+*.suo
+
+# Documentation and non-source files
+README.md
+DEPLOY.md
+REQUIREMENTS.md
+FEATURES.md
+FEATURES.md
+CHANGELOG.md
+CLAUDE_CONTEXT.md
+LICENSE
+
+# Git
+.git/
+.gitignore

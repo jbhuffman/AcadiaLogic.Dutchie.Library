@@ -5,6 +5,21 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 ---
 
+## 2026-03-09 — Docker and Docker Compose support
+
+**Added**
+
+- `Dockerfile` — multi-stage build: SDK image restores and publishes; runtime image runs as non-root `dutchie` user
+- `docker-compose.yml` — single-service Compose file with `env_file`, named volumes (`dutchie-logs`, `dutchie-data`), health check, and `restart: unless-stopped`
+- `.dockerignore` — excludes `bin/`, `obj/`, `.env`, secrets, logs, runtime state, IDE files, and documentation from the Docker build context
+
+**Changed**
+
+- `.gitignore` — added `docker-compose.override.yml` pattern for per-machine Compose overrides
+- `DEPLOY.md` — replaced placeholder Docker snippet with full Docker Compose instructions (first run, override file pattern, useful commands, update procedure)
+
+---
+
 ## 2026-03-09 — Deployment, requirements, and features documentation
 
 **Added**
