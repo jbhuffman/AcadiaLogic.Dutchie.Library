@@ -63,6 +63,43 @@ public sealed class ErpMappingConfig
     /// <summary>GL account for fees and donations.</summary>
     public string? FeesAccount { get; init; }
 
+    /// <summary>
+    /// GL account for the rounding / over-short final adjustment entry.
+    /// When set, the closing-report pipeline will add a balancing line to ensure
+    /// the journal entry debits and credits net to zero.
+    /// </summary>
+    public string? RoundingAccount { get; init; }
+
+    // ── Category & customer-type summary mappings ─────────────────────────────
+
+    /// <summary>
+    /// Maps a Dutchie product category name (e.g. "Flower", "Edibles") to a GL entry spec.
+    /// An empty-string key ("") acts as the default fallback for unmapped categories.
+    /// </summary>
+    public Dictionary<string, SummaryLineConfig> CategoryAccountMap { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Maps a Dutchie customer type name (e.g. "Recreational", "Medical") to a GL entry spec.
+    /// An empty-string key ("") acts as the default fallback for unmapped customer types.
+    /// </summary>
+    public Dictionary<string, SummaryLineConfig> CustomerTypeAccountMap { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // ── Live / draft control ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// When <see langword="true"/>, journal entries are posted immediately (live mode).
+    /// When <see langword="false"/>, they are held as Draft for manual review before posting.
+    /// Sourced from <c>dutchie_master_config.is_live</c> in the Platform App config.
+    /// </summary>
+    public bool IsLive { get; init; } = true;
+
+    /// <summary>
+    /// Maximum acceptable cash over/short discrepancy (absolute $).
+    /// Discrepancies within this threshold are absorbed silently; beyond it a warning is raised.
+    /// Sourced from <c>dutchie_master_config.maximum_overshort</c>. Defaults to 1.00.
+    /// </summary>
+    public decimal MaximumOverShort { get; init; } = 1m;
+
     // ── Sales transaction settings ────────────────────────────────────────────
 
     /// <summary>

@@ -43,13 +43,20 @@ public sealed class ClosingReportSyncPipeline
         var report = await _reporting.GetClosingReportAsync(from, to, cancellationToken).ConfigureAwait(false);
         var entry = BuildJournalEntry(report, from, to, mappingConfig);
 
+        if (entry.Lines.Count == 0)
+        {
+            _logger.LogWarning("Closing report for {From}–{To} produced no GL lines. Nothing posted.", from, to);
+            return;
+        }
+
         var key = await _erp.PostJournalEntryAsync(entry, cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("Journal entry posted. ERP key: {Key}", key);
+        _logger.LogInformation("Journal entry posted ({Mode}). ERP key: {Key}",
+            entry.PostAsDraft ? "Draft" : "Live", key);
 
         await _state.SetLastSyncTimeAsync(JobName, to, cancellationToken).ConfigureAwait(false);
     }
 
-    private static JournalEntryPayload BuildJournalEntry(
+    private JournalEntryPayload BuildJournalEntry(
         global::AcadiaLogic.Dutchie.Models.Reporting.ClosingReport report,
         DateTimeOffset from,
         DateTimeOffset to,
@@ -71,10 +78,10 @@ public sealed class ClosingReportSyncPipeline
             lines.Add(new JournalEntryLine
             {
                 AccountNumber = account,
-                Amount = (decimal)payment.TotalPaid,   // debit
-                Memo = $"{payment.PaymentType} receipts",
-                LocationId = cfg.LocationId,
-                DepartmentId = cfg.DepartmentId
+                Amount        = (decimal)payment.TotalPaid,   // debit
+                Memo          = $"{payment.PaymentType} receipts",
+                LocationId    = cfg.LocationId,
+                DepartmentId  = cfg.DepartmentId,
             });
         }
 
@@ -84,10 +91,10 @@ public sealed class ClosingReportSyncPipeline
             lines.Add(new JournalEntryLine
             {
                 AccountNumber = cfg.CannabisSalesAccount,
-                Amount = -(decimal)report.CannabisSales.Value,  // credit
-                Memo = "Cannabis net sales",
-                LocationId = cfg.LocationId,
-                DepartmentId = cfg.DepartmentId
+                Amount        = -(decimal)report.CannabisSales.Value,   // credit
+                Memo          = "Cannabis net sales",
+                LocationId    = cfg.LocationId,
+                DepartmentId  = cfg.DepartmentId,
             });
         }
 
@@ -97,10 +104,10 @@ public sealed class ClosingReportSyncPipeline
             lines.Add(new JournalEntryLine
             {
                 AccountNumber = cfg.NonCannabisSalesAccount,
-                Amount = -(decimal)report.NonCannabisSales.Value,   // credit
-                Memo = "Non-cannabis net sales",
-                LocationId = cfg.LocationId,
-                DepartmentId = cfg.DepartmentId
+                Amount        = -(decimal)report.NonCannabisSales.Value,    // credit
+                Memo          = "Non-cannabis net sales",
+                LocationId    = cfg.LocationId,
+                DepartmentId  = cfg.DepartmentId,
             });
         }
 
@@ -110,10 +117,10 @@ public sealed class ClosingReportSyncPipeline
             lines.Add(new JournalEntryLine
             {
                 AccountNumber = cfg.DiscountAccount,
-                Amount = (decimal)report.Discount.Value,    // debit (contra-revenue)
-                Memo = "Sales discounts",
-                LocationId = cfg.LocationId,
-                DepartmentId = cfg.DepartmentId
+                Amount        = (decimal)report.Discount.Value,    // debit (contra-revenue)
+                Memo          = "Sales discounts",
+                LocationId    = cfg.LocationId,
+                DepartmentId  = cfg.DepartmentId,
             });
         }
 
@@ -130,10 +137,10 @@ public sealed class ClosingReportSyncPipeline
             lines.Add(new JournalEntryLine
             {
                 AccountNumber = account,
-                Amount = -(decimal)tax.TotalTax,    // credit (liability)
-                Memo = $"Tax: {tax.TaxRate}",
-                LocationId = cfg.LocationId,
-                DepartmentId = cfg.DepartmentId
+                Amount        = -(decimal)tax.TotalTax,     // credit (liability)
+                Memo          = $"Tax: {tax.TaxRate}",
+                LocationId    = cfg.LocationId,
+                DepartmentId  = cfg.DepartmentId,
             });
         }
 
@@ -143,20 +150,120 @@ public sealed class ClosingReportSyncPipeline
             lines.Add(new JournalEntryLine
             {
                 AccountNumber = cfg.TipsAccount,
-                Amount = -(decimal)report.TotalTips.Value,  // credit
-                Memo = "Tips",
-                LocationId = cfg.LocationId,
-                DepartmentId = cfg.DepartmentId
+                Amount        = -(decimal)report.TotalTips.Value,   // credit
+                Memo          = "Tips",
+                LocationId    = cfg.LocationId,
+                DepartmentId  = cfg.DepartmentId,
             });
+        }
+
+        // ── Category summary: one GL line per product category ────────────────
+        if (cfg.CategoryAccountMap.Count > 0)
+        {
+            foreach (var cat in report.CategorySummary ?? [])
+            {
+                // Try specific category first, then fall back to the empty-string default row.
+                if (!cfg.CategoryAccountMap.TryGetValue(cat.Category ?? string.Empty, out var catCfg))
+                    cfg.CategoryAccountMap.TryGetValue(string.Empty, out catCfg);
+
+                if (catCfg is null) continue;
+
+                var rawAmount = catCfg.AmountSelector switch
+                {
+                    AmountSelector.Gross    => cat.CategoryGrossTotal,
+                    AmountSelector.Discount => cat.CategoryDiscountTotal,
+                    AmountSelector.Cost     => cat.CategoryCost,
+                    _                       => cat.CategoryNetTotal,
+                };
+
+                if (rawAmount == 0) continue;
+
+                // Revenue categories are credits; flip sign when IsCredit is true.
+                var amount = catCfg.IsCredit ? -(decimal)rawAmount : (decimal)rawAmount;
+
+                lines.Add(new JournalEntryLine
+                {
+                    AccountNumber = catCfg.Account,
+                    Amount        = amount,
+                    Memo          = $"{cat.Category ?? "Category"} sales",
+                    LocationId    = catCfg.LocationId    ?? cfg.LocationId,
+                    DepartmentId  = catCfg.DepartmentId  ?? cfg.DepartmentId,
+                    ClassId       = catCfg.ClassId,
+                });
+            }
+        }
+
+        // ── Customer-type summary: one GL line per customer type ──────────────
+        if (cfg.CustomerTypeAccountMap.Count > 0)
+        {
+            foreach (var ct in report.CustomerTypeSummary ?? [])
+            {
+                if (!cfg.CustomerTypeAccountMap.TryGetValue(ct.CustomerType ?? string.Empty, out var ctCfg))
+                    cfg.CustomerTypeAccountMap.TryGetValue(string.Empty, out ctCfg);
+
+                if (ctCfg is null) continue;
+
+                var rawAmount = ctCfg.AmountSelector switch
+                {
+                    AmountSelector.Gross    => ct.GrossTotal,
+                    AmountSelector.Discount => ct.DiscountTotal,
+                    _                       => ct.NetTotal,
+                };
+
+                if (rawAmount == 0) continue;
+
+                var amount = ctCfg.IsCredit ? -(decimal)rawAmount : (decimal)rawAmount;
+
+                lines.Add(new JournalEntryLine
+                {
+                    AccountNumber = ctCfg.Account,
+                    Amount        = amount,
+                    Memo          = $"{ct.CustomerType ?? "Customer type"} sales",
+                    LocationId    = ctCfg.LocationId   ?? cfg.LocationId,
+                    DepartmentId  = ctCfg.DepartmentId ?? cfg.DepartmentId,
+                    ClassId       = ctCfg.ClassId,
+                });
+            }
+        }
+
+        // ── Rounding / final adjustment ───────────────────────────────────────
+        // Ensure the journal entry balances to zero. Add a residual line when it does not.
+        if (!string.IsNullOrEmpty(cfg.RoundingAccount))
+        {
+            var netBalance = lines.Sum(l => l.Amount);
+            if (netBalance != 0m)
+            {
+                var absBalance = Math.Abs(netBalance);
+                if (absBalance > cfg.MaximumOverShort)
+                    _logger.LogWarning(
+                        "Closing report over/short of {Amount:C} exceeds threshold of {Threshold:C}. " +
+                        "Adding rounding adjustment to {Account}.",
+                        absBalance, cfg.MaximumOverShort, cfg.RoundingAccount);
+                else
+                    _logger.LogDebug(
+                        "Adding rounding adjustment of {Amount:C} to account {Account}.",
+                        -netBalance, cfg.RoundingAccount);
+
+                lines.Add(new JournalEntryLine
+                {
+                    AccountNumber = cfg.RoundingAccount,
+                    Amount        = -netBalance,   // flip to zero out the batch
+                    Memo          = "Rounding adjustment",
+                    LocationId    = cfg.LocationId,
+                    DepartmentId  = cfg.DepartmentId,
+                });
+            }
         }
 
         return new JournalEntryPayload
         {
             ReferenceNumber = $"DUTCHIE-CLOSE-{date:yyyyMMdd}",
-            Date = date,
-            Description = $"Dutchie closing report {from:yyyy-MM-dd} – {to:yyyy-MM-dd}",
-            LocationId = cfg.LocationId,
-            Lines = lines
+            Date            = date,
+            Description     = $"Dutchie closing report {from:yyyy-MM-dd} – {to:yyyy-MM-dd}",
+            LocationId      = cfg.LocationId,
+            JournalSymbol   = cfg.JournalSymbol,
+            PostAsDraft     = !cfg.IsLive,
+            Lines           = lines,
         };
     }
 }

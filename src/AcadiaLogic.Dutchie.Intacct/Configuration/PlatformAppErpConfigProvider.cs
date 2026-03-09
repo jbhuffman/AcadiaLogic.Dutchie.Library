@@ -27,10 +27,14 @@ namespace AcadiaLogic.Dutchie.Intacct.Configuration;
 ///   <item>
 ///     <c>dutchie_location_config</c> — per-location settings (Dutchie API credentials, default
 ///     customer/department/item). Filtered by <c>Intacct:LocationId</c> when set.
+///     If no record is found for the specific location, falls back to a record whose
+///     <c>entity_id</c> matches <c>Intacct:EntityId</c> (entity-level default).
 ///   </item>
 ///   <item>
 ///     <c>dutchie_field_config</c> — GL account mapping rows. Filtered to rows whose
 ///     <c>Rdutchielocationconfig</c> matches the location config's <c>RECORDNO</c>.
+///     Supports <c>input_type</c> values: header, paymentsummary, taxratesummary,
+///     categorysummary, customertypesummary.
 ///   </item>
 /// </list>
 /// </remarks>
@@ -67,7 +71,7 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
 
         if (master is null)
             _logger.LogWarning(
-                "No {Object} record found. Using defaults (JournalSymbol=GJ).", MasterConfigObject);
+                "No {Object} record found. Using defaults (JournalSymbol=GJ, IsLive=true).", MasterConfigObject);
         else
             _logger.LogDebug(
                 "Master config: Journal={Journal}, Live={Live}, MaxOverShort={MaxOverShort}",
@@ -98,6 +102,35 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
 
         var location = locationRows.Select(DutchieLocationConfigRow.FromXElement).FirstOrDefault();
 
+        // ── 2a. Entity-level fallback ─────────────────────────────────────────
+        // If no location-specific row was found, look for a record whose entity_id matches
+        // the configured EntityId. This allows a single "master" location config to serve
+        // all locations within an entity.
+        if (location is null && !string.IsNullOrWhiteSpace(_options.EntityId) && locationFilter is not null)
+        {
+            _logger.LogDebug(
+                "No {Object} record found for location {LocationId}. " +
+                "Attempting entity-level fallback for entity {EntityId}.",
+                LocationConfigObject, _options.LocationId, _options.EntityId);
+
+            var entityFilter  = new Filter("entity_id").SetEqualTo(_options.EntityId);
+            var entityRows = await QueryObjectAsync(
+                client,
+                LocationConfigObject,
+                ["RECORDNO", "Rdutchiemasterconfig", "RLOC", "entity_id",
+                 "dutchie_location_key", "dutchie_integrator_key",
+                 "RCUSTOMER", "RDEPARTMENT", "RITEM"],
+                entityFilter,
+                cancellationToken).ConfigureAwait(false);
+
+            location = entityRows.Select(DutchieLocationConfigRow.FromXElement).FirstOrDefault();
+
+            if (location is not null)
+                _logger.LogInformation(
+                    "Using entity-level location config (entity {EntityId}) for location {LocationId}.",
+                    _options.EntityId, _options.LocationId);
+        }
+
         if (location is null)
         {
             _logger.LogWarning(
@@ -115,13 +148,12 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
         }
 
         // ── 3. Query field config rows ────────────────────────────────────────
-        // Field configs are scoped to a location config via the Rdutchielocationconfig relationship.
         IFilter? fieldFilter = location?.RecordNo is not null
             ? new Filter("Rdutchielocationconfig").SetEqualTo(location.RecordNo)
             : locationFilter is null ? null
               : throw new InvalidOperationException(
                   $"No {LocationConfigObject} record found for location '{_options.LocationId}'. " +
-                  $"Ensure a dutchie_location_config record exists for this location.");
+                  $"Ensure a dutchie_location_config record exists for this location (or an entity-level fallback).");
 
         var fieldRows = await QueryObjectAsync(
             client,
@@ -143,8 +175,10 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
         DutchieLocationConfigRow? location,
         List<XElement> fieldRows)
     {
-        var paymentMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var taxRateMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var paymentMap      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var taxRateMap      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var categoryMap     = new Dictionary<string, SummaryLineConfig>(StringComparer.OrdinalIgnoreCase);
+        var customerTypeMap = new Dictionary<string, SummaryLineConfig>(StringComparer.OrdinalIgnoreCase);
 
         string? cannabisSales    = null;
         string? nonCannabisSales = null;
@@ -152,6 +186,7 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
         string? defaultTax       = null;
         string? tips             = null;
         string? fees             = null;
+        string? roundingAccount  = null;
 
         foreach (var row in fieldRows)
         {
@@ -159,10 +194,10 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
             var apiField  = GetXValue(row, "api_field");
             var glAccount = GetXValue(row, "RGLACCOUNT");
 
-            if (string.IsNullOrEmpty(inputType) || string.IsNullOrEmpty(apiField) || string.IsNullOrEmpty(glAccount))
+            if (string.IsNullOrEmpty(inputType) || string.IsNullOrEmpty(glAccount))
             {
                 _logger.LogWarning(
-                    "Skipping {Object} row {Id}: missing input_type, api_field, or RGLACCOUNT.",
+                    "Skipping {Object} row {Id}: missing input_type or RGLACCOUNT.",
                     FieldConfigObject, GetXValue(row, "RECORDNO") ?? "?");
                 continue;
             }
@@ -170,14 +205,22 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
             switch (inputType.ToLowerInvariant())
             {
                 case "header":
+                    if (string.IsNullOrEmpty(apiField))
+                    {
+                        _logger.LogWarning(
+                            "Skipping header {Object} row {Id}: missing api_field.",
+                            FieldConfigObject, GetXValue(row, "RECORDNO") ?? "?");
+                        break;
+                    }
                     switch (apiField.ToLowerInvariant())
                     {
-                        case "cannabissales":                        cannabisSales    = glAccount; break;
-                        case "noncannabissales":                     nonCannabisSales = glAccount; break;
-                        case "totaldiscount" or "discount":          discount         = glAccount; break;
-                        case "defaulttax" or "tax":                  defaultTax       = glAccount; break;
-                        case "tips":                                  tips             = glAccount; break;
-                        case "fees" or "donations" or "feesanddonations": fees         = glAccount; break;
+                        case "cannabissales":                             cannabisSales    = glAccount; break;
+                        case "noncannabissales":                          nonCannabisSales = glAccount; break;
+                        case "totaldiscount" or "discount":               discount         = glAccount; break;
+                        case "defaulttax" or "tax":                       defaultTax       = glAccount; break;
+                        case "tips":                                       tips             = glAccount; break;
+                        case "fees" or "donations" or "feesanddonations": fees             = glAccount; break;
+                        case "rounding" or "finaladjustment":             roundingAccount  = glAccount; break;
                         default:
                             _logger.LogDebug("Unrecognised header api_field '{Field}' — skipped.", apiField);
                             break;
@@ -185,16 +228,23 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
                     break;
 
                 case "paymentsummary":
-                    paymentMap[apiField] = glAccount;
+                    if (!string.IsNullOrEmpty(apiField))
+                        paymentMap[apiField] = glAccount;
                     break;
 
                 case "taxratesummary":
-                    taxRateMap[apiField] = glAccount;
+                    if (!string.IsNullOrEmpty(apiField))
+                        taxRateMap[apiField] = glAccount;
                     break;
 
                 case "categorysummary":
+                    // api_field = category name; empty string = default fallback row.
+                    categoryMap[apiField ?? string.Empty] = BuildSummaryLineConfig(row, glAccount, isCredit: true);
+                    break;
+
                 case "customertypesummary":
-                    // Reserved for future pipeline use.
+                    // api_field = customer type name; empty string = default fallback row.
+                    customerTypeMap[apiField ?? string.Empty] = BuildSummaryLineConfig(row, glAccount, isCredit: true);
                     break;
 
                 default:
@@ -206,6 +256,8 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
         return new ErpMappingConfig
         {
             JournalSymbol           = master?.GlJournalSymbol      ?? "GJ",
+            IsLive                  = master?.IsLive                ?? true,
+            MaximumOverShort        = master?.MaximumOverShort      ?? 1m,
             LocationId              = location?.LocationId,
             DepartmentId            = location?.DefaultDepartmentId,
             DefaultItemId           = location?.DefaultItemId,
@@ -218,8 +270,41 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
             DefaultTaxAccount       = defaultTax       ?? string.Empty,
             TipsAccount             = tips,
             FeesAccount             = fees,
+            RoundingAccount         = roundingAccount,
             PaymentTypeAccountMap   = paymentMap,
             TaxRateAccountMap       = taxRateMap,
+            CategoryAccountMap      = categoryMap,
+            CustomerTypeAccountMap  = customerTypeMap,
+        };
+    }
+
+    /// <summary>
+    /// Builds a <see cref="SummaryLineConfig"/> from a <c>dutchie_field_config</c> row,
+    /// reading optional per-entry dimension overrides and the amount selector.
+    /// </summary>
+    private static SummaryLineConfig BuildSummaryLineConfig(XElement row, string glAccount, bool isCredit)
+    {
+        // credit_debit field overrides the default (e.g. "Debit" for contra-revenue entries).
+        var creditDebitStr = GetXValue(row, "credit_debit");
+        if (!string.IsNullOrEmpty(creditDebitStr))
+            isCredit = !creditDebitStr.Equals("Debit", StringComparison.OrdinalIgnoreCase);
+
+        var amountStr = GetXValue(row, "amount");
+        var amountSelector = amountStr?.ToLowerInvariant() switch
+        {
+            "gross"    => AmountSelector.Gross,
+            "discount" => AmountSelector.Discount,
+            "cost"     => AmountSelector.Cost,
+            _          => AmountSelector.Net,
+        };
+
+        return new SummaryLineConfig
+        {
+            Account          = glAccount,
+            AmountSelector   = amountSelector,
+            IsCredit         = isCredit,
+            DepartmentId     = GetXValue(row, "RDEPARTMENT"),
+            ClassId          = GetXValue(row, "RCLASS"),
         };
     }
 

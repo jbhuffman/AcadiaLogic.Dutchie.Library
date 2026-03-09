@@ -15,6 +15,18 @@ public sealed class JournalEntryPayload
     /// <summary>Source location identifier (for multi-location setups).</summary>
     public string? LocationId { get; init; }
 
+    /// <summary>
+    /// ERP journal symbol (e.g. "GJ", "APJ"). Sourced from <c>ErpMappingConfig.JournalSymbol</c>
+    /// and carried here so the connector does not need a separate config lookup.
+    /// </summary>
+    public string JournalSymbol { get; init; } = "GJ";
+
+    /// <summary>
+    /// When <see langword="true"/> the ERP connector should hold the entry as a Draft
+    /// rather than posting it immediately. Driven by <c>ErpMappingConfig.IsLive</c>.
+    /// </summary>
+    public bool PostAsDraft { get; init; }
+
     public required IReadOnlyList<JournalEntryLine> Lines { get; init; }
 }
 
@@ -30,6 +42,9 @@ public sealed class JournalEntryLine
     public string? LocationId { get; init; }
     public string? DepartmentId { get; init; }
 
-    /// <summary>Free-form dimension/tag map for ERP-specific dimensions (e.g. Class, Project).</summary>
+    /// <summary>Intacct Class dimension for cost-centre / project tracking.</summary>
+    public string? ClassId { get; init; }
+
+    /// <summary>Free-form dimension/tag map for ERP-specific dimensions.</summary>
     public Dictionary<string, string>? Dimensions { get; init; }
 }

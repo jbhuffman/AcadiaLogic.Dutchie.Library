@@ -33,28 +33,33 @@ public sealed class IntacctErpConnector : IErpConnector
     {
         _logger.LogInformation("Posting journal entry {Ref} to Sage Intacct", entry.ReferenceNumber);
 
+        if (!entry.Lines.Any())
+            throw new InvalidOperationException("Journal entry has no lines.");
+
         var je = new JournalEntryCreate
         {
-            ControlId = entry.ReferenceNumber
+            ControlId      = entry.ReferenceNumber,
+            JournalSymbol  = entry.JournalSymbol,
+            PostingDate    = entry.Date.ToDateTime(TimeOnly.MinValue),
+            ReferenceNumber = entry.ReferenceNumber,
+            Description    = entry.Description,
+            SourceEntityId = entry.LocationId,
         };
 
-        je.JournalSymbol = entry.Lines.Any()
-            ? GetJournalSymbolFromConfig()
-            : throw new InvalidOperationException("Journal entry has no lines.");
-
-        je.PostingDate = entry.Date.ToDateTime(TimeOnly.MinValue);
-        je.ReferenceNumber = entry.ReferenceNumber;
-        je.Description = entry.Description;
-        je.SourceEntityId = entry.LocationId;
+        // Draft mode: hold for manual review; Live mode: post immediately.
+        // The Intacct SDK exposes this via the Action property on AbstractGlBatch.
+        if (entry.PostAsDraft)
+            je.Action = "Draft";
 
         foreach (var line in entry.Lines)
         {
             var jel = new JournalEntryLineCreate();
-            jel.GlAccountNumber = line.AccountNumber;
+            jel.GlAccountNumber   = line.AccountNumber;
             jel.TransactionAmount = line.Amount;
-            jel.Memo = line.Memo;
-            jel.LocationId = line.LocationId ?? entry.LocationId;
-            jel.DepartmentId = line.DepartmentId;
+            jel.Memo              = line.Memo;
+            jel.LocationId        = line.LocationId ?? entry.LocationId;
+            jel.DepartmentId      = line.DepartmentId;
+            jel.ClassId           = line.ClassId;
             je.Lines.Add(jel);
         }
 
@@ -139,11 +144,4 @@ public sealed class IntacctErpConnector : IErpConnector
             result.Errors ?? []);
     }
 
-    private string GetJournalSymbolFromConfig()
-    {
-        // Journal symbol will be driven by ErpMappingConfig injected at pipeline level.
-        // The connector gets the symbol from the entry's controlling pipeline.
-        // Default fallback: "GJ"
-        return "GJ";
-    }
 }

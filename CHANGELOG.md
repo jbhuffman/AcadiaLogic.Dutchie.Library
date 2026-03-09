@@ -5,6 +5,16 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 ---
 
+## 2026-03-09 — Deployment, requirements, and features documentation
+
+**Added**
+
+- `DEPLOY.md` — step-by-step deployment guide covering Platform App setup, build/publish, credential options, worker configuration, systemd/Docker deployment, verification, update, rollback, and troubleshooting
+- `REQUIREMENTS.md` — functional and non-functional requirements including FR and NFR IDs, constraints, and out-of-scope items for the current release
+- `FEATURES.md` — implemented feature descriptions and planned/future feature list
+
+---
+
 ## 2026-03-09 — Documentation and context
 
 **Added**
