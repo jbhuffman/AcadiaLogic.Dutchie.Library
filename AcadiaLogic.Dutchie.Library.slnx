@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AcadiaLogic.Dutchie.Intacct/AcadiaLogic.Dutchie.Intacct.csproj" />
+    <Project Path="src/AcadiaLogic.Dutchie.Integration/AcadiaLogic.Dutchie.Integration.csproj" />
+    <Project Path="src/AcadiaLogic.Dutchie.Library/AcadiaLogic.Dutchie.Library.csproj" />
+    <Project Path="src/AcadiaLogic.Dutchie.Worker/AcadiaLogic.Dutchie.Worker.csproj" />
+  </Folder>
+</Solution>

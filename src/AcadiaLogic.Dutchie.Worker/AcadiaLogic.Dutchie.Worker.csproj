@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>AcadiaLogic.Dutchie.Worker</RootNamespace>
+    <UserSecretsId>dotnet-AcadiaLogic.Dutchie.Worker-d65eec9d-1c03-4cda-96b7-2384cd30d2d3</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="NLog.Extensions.Hosting" Version="5.3.15" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="nlog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AcadiaLogic.Dutchie.Integration\AcadiaLogic.Dutchie.Integration.csproj" />
+    <ProjectReference Include="..\AcadiaLogic.Dutchie.Intacct\AcadiaLogic.Dutchie.Intacct.csproj" />
+  </ItemGroup>
+
+</Project>

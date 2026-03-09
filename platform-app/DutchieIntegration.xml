@@ -1,0 +1,615 @@
+<Application id="20003" origId="NEW@20003" orderNo="1" isSystem="F" version="1.0">
+<DisplayName>Dutchie Integration</DisplayName>
+<Props>
+  <isDeployed>1</isDeployed>
+  <menuIds>20092,20097,20102,20108,</menuIds>
+  <objDefIds>20020,20021,20022,20023</objDefIds>
+  <stDefIds>customer,</stDefIds>
+</Props>
+<DependentDefs></DependentDefs>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     DATA OBJECT DEFINITIONS
+     ════════════════════════════════════════════════════════════════════════ -->
+<DataObjectDefs>
+
+  <!-- ── dutchie_master_config (20021) ────────────────────────────────────
+    Company-level settings shared across all locations.
+    One record per integration setup (typically one per company).
+
+    Fields:
+      RGLJOURNAL      — which Intacct GL journal to post closing-report entries to
+      maximum_overshort — cash over/short tolerance (absolute $); discrepancies within
+                          this threshold are absorbed; beyond it a warning is raised
+      is_live         — when false, journal entries are held as Draft for review
+  -->
+  <DataObjectDef id="20021" origId="NEW@20021" objDefName="dutchie_master_config">
+    <SingularName>Dutchie Master Config</SingularName>
+    <PluralName>Dutchie Master Configs</PluralName>
+    <Description>Company-level Dutchie integration settings: GL journal, over/short tolerance, and live flag.</Description>
+    <Props><isAuditable>1</isAuditable><isDeployed>1</isDeployed><defProcess>0</defProcess><objIcon>mc01</objIcon></Props>
+    <DataFieldDefs>
+      <!-- ── System fields ── -->
+      <DataFieldDef id="20610" origId="NEW@20610" objDef="20021" dataClassName="Pt_FieldString" uiClassName="Pt_ObjectLink" columnName="OBJ_NAME" fieldName="name" groupName="OBJNAME">
+        <DisplayLabel>Dutchie Master Config</DisplayLabel>
+        <Props><isSystem>1</isSystem><isTextIndex>1</isTextIndex><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><maxLength>100</maxLength></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20611" origId="NEW@20611" objDef="20021" dataClassName="Pt_FieldComment" uiClassName="Pt_CommentsArea" fieldName="comment" groupName="COMMENT">
+        <DisplayLabel>Comments</DisplayLabel>
+        <Props><isSystem>1</isSystem><rows>10</rows><cols>60</cols></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20612" origId="NEW@20612" objDef="20021" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="CREATED_BY" fieldName="createdBy" groupName="STANDARD">
+        <DisplayLabel>Created By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20613" origId="NEW@20613" objDef="20021" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="CREATED_AT" fieldName="createdAt" groupName="STANDARD">
+        <DisplayLabel>Created At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20614" origId="NEW@20614" objDef="20021" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="UPDATED_BY" fieldName="updatedBy" groupName="STANDARD">
+        <DisplayLabel>Updated By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20615" origId="NEW@20615" objDef="20021" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="UPDATED_AT" fieldName="updatedAt" groupName="STANDARD">
+        <DisplayLabel>Updated At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20616" origId="NEW@20616" objDef="20021" dataClassName="Pt_FieldInt" uiClassName="Pt_IntInput" columnName="RECORD#" fieldName="id" groupName="STANDARD">
+        <DisplayLabel>ID</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20617" origId="NEW@20617" objDef="20021" dataClassName="Pt_FieldDummy" uiClassName="Pt_TextInput" fieldName="RECORD_URL" groupName="STANDARD">
+        <DisplayLabel>Record URL</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly></Props>
+      </DataFieldDef>
+      <!-- ── Custom fields ── -->
+      <!-- RGLJOURNAL: the GL journal to use for all closing-report journal entries -->
+      <DataFieldDef id="20618" origId="NEW@20618" objDef="20021" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG0" fieldName="RGLJOURNAL">
+        <DisplayLabel>GL Journal</DisplayLabel>
+        <Props><relId>20097</relId><isRequired>1</isRequired><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><noClone>1</noClone></Props>
+      </DataFieldDef>
+      <!-- maximum_overshort: tolerance threshold for cash over/short discrepancies -->
+      <DataFieldDef id="20621" origId="NEW@20621" objDef="20021" dataClassName="Pt_FieldDouble" uiClassName="Pt_DecimalInput" columnName="DBL0" fieldName="maximum_overshort">
+        <DisplayLabel>Maximum Over/Short ($)</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength><decimalPlaces>2</decimalPlaces><defValue>1.00</defValue><minValue>0.01</minValue></Props>
+      </DataFieldDef>
+      <!-- is_live: when false, journal entries are held as Draft for manual review -->
+      <DataFieldDef id="20622" origId="NEW@20622" objDef="20021" dataClassName="Pt_FieldBool" uiClassName="Pt_CheckBox" columnName="BOOL0" fieldName="is_live">
+        <DisplayLabel>Live (Post, Not Draft)</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><defValue>0</defValue></Props>
+      </DataFieldDef>
+      <!-- Back-reference: location configs that use this master config -->
+      <DataFieldDef id="20719" origId="NEW@20719" objDef="20021" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchielocationconfig">
+        <DisplayLabel>Location Configs</DisplayLabel>
+        <Props><relId>20104</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+    <RelationshipDefs>
+      <RelationshipDef id="20097" origId="NEW@20097" relName="RDTMCJNL" objDefId1="5076" objDefId2="20021" singularName1="GL Journal" pluralName1="GL Journals" singularName2="Dutchie Master Config" pluralName2="Dutchie Master Configs" isMultiple1="F" isMultiple2="T"/>
+    </RelationshipDefs>
+    <ListViews>
+      <ListView id="20702" origId="NEW@20702" objDefId="20021" isSystem="F">
+        <ViewName>All Dutchie Master Configs</ViewName>
+        <Props><joinType>1</joinType><filterVersion>2</filterVersion><columns>20610,20618,20621,20622,20615</columns><defSortCol>20615</defSortCol><showActions>1</showActions></Props>
+      </ListView>
+    </ListViews>
+  </DataObjectDef>
+
+  <!-- ── dutchie_location_config (20023) ──────────────────────────────────
+    Per-Intacct-location settings. One record per location/entity that syncs
+    with Dutchie. Links to a dutchie_master_config record for company-level
+    settings, and to the standard Location object as an identifier.
+
+    Fields:
+      Rdutchiemasterconfig — which master config (journal/tolerance) this location uses
+      RLOC                 — the Intacct Location this record applies to
+      entity_id            — optional SDK EntityId override for multi-entity companies
+                             where the API login entity differs from the Location ID
+      dutchie_location_key — Dutchie Basic Auth username (LocationKey) for this location
+      dutchie_integrator_key — Dutchie Basic Auth password (IntegratorKey)
+      RCUSTOMER            — default "walk-in" customer for unmatched Dutchie transactions
+      RDEPARTMENT          — default department dimension to stamp on journal/invoice lines
+      RITEM                — default item for AR invoice lines
+  -->
+  <DataObjectDef id="20023" origId="NEW@20023" objDefName="dutchie_location_config">
+    <SingularName>Dutchie Location Config</SingularName>
+    <PluralName>Dutchie Location Configs</PluralName>
+    <Description>Per-location Dutchie integration settings: Dutchie API credentials, default dimensions, and link to the master config.</Description>
+    <Props><isAuditable>1</isAuditable><isDeployed>1</isDeployed><defProcess>0</defProcess><objIcon>mc01</objIcon></Props>
+    <DataFieldDefs>
+      <!-- ── System fields ── -->
+      <DataFieldDef id="20700" origId="NEW@20700" objDef="20023" dataClassName="Pt_FieldString" uiClassName="Pt_ObjectLink" columnName="OBJ_NAME" fieldName="name" groupName="OBJNAME">
+        <DisplayLabel>Dutchie Location Config</DisplayLabel>
+        <Props><isSystem>1</isSystem><isTextIndex>1</isTextIndex><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><maxLength>100</maxLength></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20701" origId="NEW@20701" objDef="20023" dataClassName="Pt_FieldComment" uiClassName="Pt_CommentsArea" fieldName="comment" groupName="COMMENT">
+        <DisplayLabel>Comments</DisplayLabel>
+        <Props><isSystem>1</isSystem><rows>10</rows><cols>60</cols></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20702" origId="NEW@20702" objDef="20023" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="CREATED_BY" fieldName="createdBy" groupName="STANDARD">
+        <DisplayLabel>Created By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20703" origId="NEW@20703" objDef="20023" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="CREATED_AT" fieldName="createdAt" groupName="STANDARD">
+        <DisplayLabel>Created At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20704" origId="NEW@20704" objDef="20023" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="UPDATED_BY" fieldName="updatedBy" groupName="STANDARD">
+        <DisplayLabel>Updated By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20705" origId="NEW@20705" objDef="20023" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="UPDATED_AT" fieldName="updatedAt" groupName="STANDARD">
+        <DisplayLabel>Updated At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20706" origId="NEW@20706" objDef="20023" dataClassName="Pt_FieldInt" uiClassName="Pt_IntInput" columnName="RECORD#" fieldName="id" groupName="STANDARD">
+        <DisplayLabel>ID</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20707" origId="NEW@20707" objDef="20023" dataClassName="Pt_FieldDummy" uiClassName="Pt_TextInput" fieldName="RECORD_URL" groupName="STANDARD">
+        <DisplayLabel>Record URL</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly></Props>
+      </DataFieldDef>
+      <!-- ── Custom fields ── -->
+      <!-- Rdutchiemasterconfig: the master config (journal/tolerance) this location uses -->
+      <DataFieldDef id="20708" origId="NEW@20708" objDef="20023" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG0" fieldName="Rdutchiemasterconfig">
+        <DisplayLabel>Master Config</DisplayLabel>
+        <Props><relId>20104</relId><isRequired>1</isRequired><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- RLOC: the Intacct Location this config applies to (1:1 — one config per location) -->
+      <DataFieldDef id="20709" origId="NEW@20709" objDef="20023" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG1" fieldName="RLOC">
+        <DisplayLabel>Location</DisplayLabel>
+        <Props><relId>20103</relId><isRequired>1</isRequired><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><noClone>1</noClone></Props>
+      </DataFieldDef>
+      <!-- entity_id: optional Intacct Entity ID override for multi-entity companies
+           where the SDK EntityId (API login context) differs from the Location's LOCATIONID -->
+      <DataFieldDef id="20710" origId="NEW@20710" objDef="20023" dataClassName="Pt_FieldString" uiClassName="Pt_TextInput" columnName="STR0" fieldName="entity_id">
+        <DisplayLabel>Entity ID Override</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>100</maxLength><size>100</size></Props>
+      </DataFieldDef>
+      <!-- dutchie_location_key: Dutchie Basic Auth username (LocationKey) for this location -->
+      <DataFieldDef id="20711" origId="NEW@20711" objDef="20023" dataClassName="Pt_FieldString" uiClassName="Pt_TextInput" columnName="STR1" fieldName="dutchie_location_key">
+        <DisplayLabel>Dutchie - Location Key</DisplayLabel>
+        <Props><isSearchable>0</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><maxLength>255</maxLength><size>255</size><noClone>1</noClone><isRequired>1</isRequired></Props>
+      </DataFieldDef>
+      <!-- dutchie_integrator_key: Dutchie Basic Auth password (IntegratorKey) for this location -->
+      <DataFieldDef id="20712" origId="NEW@20712" objDef="20023" dataClassName="Pt_FieldString" uiClassName="Pt_TextInput" columnName="STR2" fieldName="dutchie_integrator_key">
+        <DisplayLabel>Dutchie - Integrator Key</DisplayLabel>
+        <Props><isSearchable>0</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><maxLength>255</maxLength><size>255</size><noClone>1</noClone><isRequired>1</isRequired></Props>
+      </DataFieldDef>
+      <!-- RCUSTOMER: default "walk-in" customer for transactions with no Dutchie customer match -->
+      <DataFieldDef id="20713" origId="NEW@20713" objDef="20023" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG2" fieldName="RCUSTOMER">
+        <DisplayLabel>Default Customer</DisplayLabel>
+        <Props><relId>20105</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- RDEPARTMENT: default department dimension to stamp on journal and invoice lines -->
+      <DataFieldDef id="20714" origId="NEW@20714" objDef="20023" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG3" fieldName="RDEPARTMENT">
+        <DisplayLabel>Default Department</DisplayLabel>
+        <Props><relId>20106</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- RITEM: default Intacct item for AR invoice lines -->
+      <DataFieldDef id="20715" origId="NEW@20715" objDef="20023" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG4" fieldName="RITEM">
+        <DisplayLabel>Default Item</DisplayLabel>
+        <Props><relId>20107</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- Back-reference: field config rows that belong to this location -->
+      <DataFieldDef id="20716" origId="NEW@20716" objDef="20023" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchiefieldconfig">
+        <DisplayLabel>Field Configs</DisplayLabel>
+        <Props><relId>20095</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+    <RelationshipDefs>
+      <!-- 1:1 — each Intacct Location has at most one Dutchie Location Config -->
+      <RelationshipDef id="20103" origId="NEW@20103" relName="RDTLCFLOC" objDefId1="5003" objDefId2="20023" singularName1="Location" pluralName1="Locations" singularName2="Dutchie Location Config" pluralName2="Dutchie Location Configs" isMultiple1="F" isMultiple2="F"/>
+      <!-- Many location configs may share the same master config -->
+      <RelationshipDef id="20104" origId="NEW@20104" relName="RDTLCFMC" objDefId1="20021" objDefId2="20023" singularName1="Dutchie Master Config" pluralName1="Dutchie Master Configs" singularName2="Dutchie Location Config" pluralName2="Dutchie Location Configs" isMultiple1="F" isMultiple2="T"/>
+      <RelationshipDef id="20105" origId="NEW@20105" relName="RDTLCFCUS" objDefId1="5026" objDefId2="20023" singularName1="Customer" pluralName1="Customers" singularName2="Dutchie Location Config" pluralName2="Dutchie Location Configs" isMultiple1="F" isMultiple2="T"/>
+      <RelationshipDef id="20106" origId="NEW@20106" relName="RDTLCFDEP" objDefId1="5002" objDefId2="20023" singularName1="Department" pluralName1="Departments" singularName2="Dutchie Location Config" pluralName2="Dutchie Location Configs" isMultiple1="F" isMultiple2="T"/>
+      <RelationshipDef id="20107" origId="NEW@20107" relName="RDTLCFITM" objDefId1="5044" objDefId2="20023" singularName1="Item" pluralName1="Items" singularName2="Dutchie Location Config" pluralName2="Dutchie Location Configs" isMultiple1="F" isMultiple2="T"/>
+    </RelationshipDefs>
+    <ListViews>
+      <ListView id="20720" origId="NEW@20720" objDefId="20023" isSystem="F">
+        <ViewName>All Dutchie Location Configs</ViewName>
+        <Props><joinType>1</joinType><filterVersion>2</filterVersion><columns>20700,20709,20708,20713,20714,20715,20705</columns><defSortCol>20705</defSortCol><showActions>1</showActions></Props>
+      </ListView>
+    </ListViews>
+  </DataObjectDef>
+
+  <!-- ── dutchie_field_config (20020) ─────────────────────────────────────
+    One row per GL mapping rule. Each row links a Dutchie closing-report field
+    (identified by input_type + api_field) to an Intacct GL account.
+    Rows belong to a dutchie_location_config record — not directly to the
+    standard Location — so the mapping table is fully self-contained.
+
+    input_type codes   api_field examples
+    ─────────────────  ─────────────────────────────────────────────────────
+    header             cannabisSales | nonCannabisSales | totalDiscount |
+                       defaultTax | tips | fees
+    paymentSummary     Cash | CreditCard | DebitCard | CanPay | Default | …
+    taxRateSummary     <tax rate label as returned by Dutchie API>
+    categorySummary    <category name as returned by Dutchie API>
+
+    credit_debit:  C = Credit line, D = Debit line on the journal entry
+    amount:        net (default) | gross | discount
+    entry_type:    revenue | cogs
+  -->
+  <DataObjectDef id="20020" origId="NEW@20020" objDefName="dutchie_field_config">
+    <SingularName>Dutchie Field Config</SingularName>
+    <PluralName>Dutchie Field Configs</PluralName>
+    <Description>Dutchie closing-report field → Intacct GL account mapping. One row per mapping rule, scoped to a Dutchie Location Config.</Description>
+    <Props><isAuditable>1</isAuditable><isDeployed>1</isDeployed><defProcess>0</defProcess><objIcon>mc01</objIcon></Props>
+    <DataFieldDefs>
+      <!-- ── System fields ── -->
+      <DataFieldDef id="20583" origId="NEW@20583" objDef="20020" dataClassName="Pt_FieldString" uiClassName="Pt_ObjectLink" columnName="OBJ_NAME" fieldName="name" groupName="OBJNAME">
+        <DisplayLabel>Dutchie Field Config</DisplayLabel>
+        <Props><isSystem>1</isSystem><isTextIndex>1</isTextIndex><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><maxLength>100</maxLength></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20584" origId="NEW@20584" objDef="20020" dataClassName="Pt_FieldComment" uiClassName="Pt_CommentsArea" fieldName="comment" groupName="COMMENT">
+        <DisplayLabel>Comments</DisplayLabel>
+        <Props><isSystem>1</isSystem><rows>10</rows><cols>60</cols></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20585" origId="NEW@20585" objDef="20020" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="CREATED_BY" fieldName="createdBy" groupName="STANDARD">
+        <DisplayLabel>Created By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20586" origId="NEW@20586" objDef="20020" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="CREATED_AT" fieldName="createdAt" groupName="STANDARD">
+        <DisplayLabel>Created At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20587" origId="NEW@20587" objDef="20020" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="UPDATED_BY" fieldName="updatedBy" groupName="STANDARD">
+        <DisplayLabel>Updated By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20588" origId="NEW@20588" objDef="20020" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="UPDATED_AT" fieldName="updatedAt" groupName="STANDARD">
+        <DisplayLabel>Updated At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20589" origId="NEW@20589" objDef="20020" dataClassName="Pt_FieldInt" uiClassName="Pt_IntInput" columnName="RECORD#" fieldName="id" groupName="STANDARD">
+        <DisplayLabel>ID</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20590" origId="NEW@20590" objDef="20020" dataClassName="Pt_FieldDummy" uiClassName="Pt_TextInput" fieldName="RECORD_URL" groupName="STANDARD">
+        <DisplayLabel>Record URL</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly></Props>
+      </DataFieldDef>
+      <!-- ── Custom fields ── -->
+      <!-- Rdutchielocationconfig: the location config this row belongs to -->
+      <DataFieldDef id="20591" origId="NEW@20591" objDef="20020" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG0" fieldName="Rdutchielocationconfig">
+        <DisplayLabel>Location Config</DisplayLabel>
+        <Props><relId>20095</relId><isRequired>1</isRequired><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><noClone>1</noClone></Props>
+      </DataFieldDef>
+      <!-- input_type: which section of the Dutchie closing report this row maps -->
+      <DataFieldDef id="20592" origId="NEW@20592" objDef="20020" dataClassName="Pt_FieldInt" uiClassName="Pt_SelectList" columnName="INTG1" fieldName="input_type">
+        <DisplayLabel>Input Type</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength><sortABC>1</sortABC><isRequired>1</isRequired></Props>
+        <ListItems>
+          <ListItem id="20040" origId="NEW@20040" orderNo="0" source="S20592" name="Category" code="categorySummary" isDefault="F"/>
+          <ListItem id="20041" origId="NEW@20041" orderNo="1" source="S20592" name="Customer Type" code="customerTypeSummary" isDefault="F"/>
+          <ListItem id="20042" origId="NEW@20042" orderNo="2" source="S20592" name="Header" code="header" isDefault="T"/>
+          <ListItem id="20043" origId="NEW@20043" orderNo="3" source="S20592" name="Payment" code="paymentSummary" isDefault="F"/>
+          <ListItem id="20044" origId="NEW@20044" orderNo="4" source="S20592" name="Tax Rate" code="taxRateSummary" isDefault="F"/>
+        </ListItems>
+      </DataFieldDef>
+      <!-- api_field: the Dutchie field name or label within the chosen input_type section -->
+      <DataFieldDef id="20593" origId="NEW@20593" objDef="20020" dataClassName="Pt_FieldString" uiClassName="Pt_TextInput" columnName="STR0" fieldName="api_field">
+        <DisplayLabel>API Field</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>100</maxLength><size>100</size><noClone>1</noClone><isRequired>1</isRequired></Props>
+      </DataFieldDef>
+      <!-- credit_debit: whether this row generates a Credit or Debit journal line -->
+      <DataFieldDef id="20594" origId="NEW@20594" objDef="20020" dataClassName="Pt_FieldInt" uiClassName="Pt_RadioButtons" columnName="INTG2" fieldName="credit_debit">
+        <DisplayLabel>Credit / Debit</DisplayLabel>
+        <Props><isRequired>1</isRequired><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength><sortABC>1</sortABC></Props>
+        <ListItems>
+          <ListItem id="20045" origId="NEW@20045" orderNo="0" source="S20594" name="Credit" code="C" isDefault="F"/>
+          <ListItem id="20046" origId="NEW@20046" orderNo="1" source="S20594" name="Debit" code="D" isDefault="F"/>
+        </ListItems>
+      </DataFieldDef>
+      <!-- RGLACCOUNT: the Intacct GL account to post to -->
+      <DataFieldDef id="20595" origId="NEW@20595" objDef="20020" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG3" fieldName="RGLACCOUNT">
+        <DisplayLabel>GL Account</DisplayLabel>
+        <Props><relId>20090</relId><isRequired>1</isRequired><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- RCUSTOMER: optional customer override for this specific field (overrides location default) -->
+      <DataFieldDef id="20596" origId="NEW@20596" objDef="20020" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG4" fieldName="RCUSTOMER">
+        <DisplayLabel>Customer Override</DisplayLabel>
+        <Props><relId>20091</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- RDEPARTMENT: optional department override for this specific field (overrides location default) -->
+      <DataFieldDef id="20597" origId="NEW@20597" objDef="20020" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG5" fieldName="RDEPARTMENT">
+        <DisplayLabel>Department Override</DisplayLabel>
+        <Props><relId>20092</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- RITEM: optional item override for this specific field (overrides location default) -->
+      <DataFieldDef id="20598" origId="NEW@20598" objDef="20020" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG6" fieldName="RITEM">
+        <DisplayLabel>Item Override</DisplayLabel>
+        <Props><relId>20093</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- RCLASS: optional class dimension override -->
+      <DataFieldDef id="20599" origId="NEW@20599" objDef="20020" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG7" fieldName="RCLASS">
+        <DisplayLabel>Class Override</DisplayLabel>
+        <Props><relId>20094</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- amount: which amount value from the Dutchie field to use -->
+      <DataFieldDef id="20600" origId="NEW@20600" objDef="20020" dataClassName="Pt_FieldInt" uiClassName="Pt_RadioButtons" columnName="INTG8" fieldName="amount">
+        <DisplayLabel>Amount</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength></Props>
+        <ListItems>
+          <ListItem id="20050" origId="NEW@20050" orderNo="0" source="S20600" name="Gross" code="gross" isDefault="F"/>
+          <ListItem id="20051" origId="NEW@20051" orderNo="1" source="S20600" name="Net" code="net" isDefault="T"/>
+          <ListItem id="20052" origId="NEW@20052" orderNo="2" source="S20600" name="Discount" code="discount" isDefault="F"/>
+        </ListItems>
+      </DataFieldDef>
+      <!-- entry_type: Revenue or COGS -->
+      <DataFieldDef id="20601" origId="NEW@20601" objDef="20020" dataClassName="Pt_FieldInt" uiClassName="Pt_RadioButtons" columnName="INTG9" fieldName="entry_type">
+        <DisplayLabel>Entry Type</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength></Props>
+        <ListItems>
+          <ListItem id="20053" origId="NEW@20053" orderNo="0" source="S20601" name="Revenue" code="revenue" isDefault="T"/>
+          <ListItem id="20054" origId="NEW@20054" orderNo="1" source="S20601" name="COGS" code="cogs" isDefault="F"/>
+        </ListItems>
+      </DataFieldDef>
+    </DataFieldDefs>
+
+    <RelationshipDefs>
+      <!-- dutchie_field_config → dutchie_location_config (many field rows per location config) -->
+      <RelationshipDef id="20095" origId="NEW@20095" relName="RDTFCFLCF" objDefId1="20023" objDefId2="20020" singularName1="Dutchie Location Config" pluralName1="Dutchie Location Configs" singularName2="Dutchie Field Config" pluralName2="Dutchie Field Configs" isMultiple1="F" isMultiple2="T"/>
+      <!-- GL account -->
+      <RelationshipDef id="20090" origId="NEW@20090" relName="RDTFCFGLA" objDefId1="5001" objDefId2="20020" singularName1="GL Account" pluralName1="GL Accounts" singularName2="Dutchie Field Config" pluralName2="Dutchie Field Configs" isMultiple1="F" isMultiple2="T"/>
+      <!-- Customer override -->
+      <RelationshipDef id="20091" origId="NEW@20091" relName="RDTFCFCUS" objDefId1="5026" objDefId2="20020" singularName1="Customer" pluralName1="Customers" singularName2="Dutchie Field Config" pluralName2="Dutchie Field Configs" isMultiple1="F" isMultiple2="T"/>
+      <!-- Department override -->
+      <RelationshipDef id="20092" origId="NEW@20092" relName="RDTFCFDEP" objDefId1="5002" objDefId2="20020" singularName1="Department" pluralName1="Departments" singularName2="Dutchie Field Config" pluralName2="Dutchie Field Configs" isMultiple1="F" isMultiple2="T"/>
+      <!-- Item override -->
+      <RelationshipDef id="20093" origId="NEW@20093" relName="RDTFCFITM" objDefId1="5044" objDefId2="20020" singularName1="Item" pluralName1="Items" singularName2="Dutchie Field Config" pluralName2="Dutchie Field Configs" isMultiple1="F" isMultiple2="T"/>
+      <!-- Class override -->
+      <RelationshipDef id="20094" origId="NEW@20094" relName="RDTFCFCLA" objDefId1="5020" objDefId2="20020" singularName1="Class" pluralName1="Classes" singularName2="Dutchie Field Config" pluralName2="Dutchie Field Configs" isMultiple1="F" isMultiple2="T"/>
+    </RelationshipDefs>
+
+    <ListViews>
+      <ListView id="20701" origId="NEW@20701" objDefId="20020" isSystem="F">
+        <ViewName>All Dutchie Field Configs</ViewName>
+        <Props><joinType>1</joinType><filterVersion>2</filterVersion><columns>20583,20591,20592,20593,20594,20595,20597,20598,20596,20600,20601</columns><defSortCol>20588</defSortCol><showActions>1</showActions></Props>
+      </ListView>
+    </ListViews>
+
+    <ConversionMaps>
+      <ImportMap id="20019" origId="NEW@20019" mapName="Dutchie Field Config Import Map" destDefId="20020">
+        <MapColumns>
+          <MapColumn dest="Rdutchielocationconfig" col="1"/>
+          <MapColumn dest="input_type"             col="2"/>
+          <MapColumn dest="api_field"              col="3"/>
+          <MapColumn dest="credit_debit"           col="4"/>
+          <MapColumn dest="RGLACCOUNT"             col="5"/>
+          <MapColumn dest="RCUSTOMER"              col="6"/>
+          <MapColumn dest="RITEM"                  col="7"/>
+          <MapColumn dest="RDEPARTMENT"            col="8"/>
+          <MapColumn dest="RCLASS"                 col="9"/>
+          <MapColumn dest="amount"                 col="10"/>
+          <MapColumn dest="entry_type"             col="11"/>
+        </MapColumns>
+      </ImportMap>
+    </ConversionMaps>
+  </DataObjectDef>
+
+  <!-- ── dutchie_process_log (20022) ──────────────────────────────────────
+    Audit log written by each sync job run. One record per job execution.
+  -->
+  <DataObjectDef id="20022" origId="NEW@20022" objDefName="dutchie_process_log">
+    <SingularName>Dutchie Process Log</SingularName>
+    <PluralName>Dutchie Process Logs</PluralName>
+    <Props><isDeployed>1</isDeployed><defProcess>0</defProcess><objIcon>mc01</objIcon></Props>
+    <DataFieldDefs>
+      <DataFieldDef id="20650" origId="NEW@20650" objDef="20022" dataClassName="Pt_FieldString" uiClassName="Pt_ObjectLink" columnName="OBJ_NAME" fieldName="name" groupName="OBJNAME">
+        <DisplayLabel>Dutchie Process Log</DisplayLabel>
+        <Props><isSystem>1</isSystem><isTextIndex>1</isTextIndex><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><maxLength>100</maxLength></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20651" origId="NEW@20651" objDef="20022" dataClassName="Pt_FieldComment" uiClassName="Pt_CommentsArea" fieldName="comment" groupName="COMMENT">
+        <DisplayLabel>Comments</DisplayLabel>
+        <Props><isSystem>1</isSystem><rows>10</rows><cols>60</cols></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20652" origId="NEW@20652" objDef="20022" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="CREATED_BY" fieldName="createdBy" groupName="STANDARD">
+        <DisplayLabel>Created By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20653" origId="NEW@20653" objDef="20022" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="CREATED_AT" fieldName="createdAt" groupName="STANDARD">
+        <DisplayLabel>Created At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20654" origId="NEW@20654" objDef="20022" dataClassName="Pt_FieldInt" uiClassName="Pt_UserLink" columnName="UPDATED_BY" fieldName="updatedBy" groupName="STANDARD">
+        <DisplayLabel>Updated By</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20655" origId="NEW@20655" objDef="20022" dataClassName="Pt_FieldDateTime" uiClassName="Pt_DateTimeInput" columnName="UPDATED_AT" fieldName="updatedAt" groupName="STANDARD">
+        <DisplayLabel>Updated At</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isGMT>1</isGMT></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20656" origId="NEW@20656" objDef="20022" dataClassName="Pt_FieldInt" uiClassName="Pt_IntInput" columnName="RECORD#" fieldName="id" groupName="STANDARD">
+        <DisplayLabel>ID</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20657" origId="NEW@20657" objDef="20022" dataClassName="Pt_FieldDummy" uiClassName="Pt_TextInput" fieldName="RECORD_URL" groupName="STANDARD">
+        <DisplayLabel>Record URL</DisplayLabel>
+        <Props><isSystem>1</isSystem><isReadOnly>1</isReadOnly></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20658" origId="NEW@20658" objDef="20022" dataClassName="Pt_FieldString" uiClassName="Pt_TextInput" columnName="STR0" fieldName="job_name">
+        <DisplayLabel>Job Name</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>100</maxLength></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20659" origId="NEW@20659" objDef="20022" dataClassName="Pt_FieldInt" uiClassName="Pt_SelectList" columnName="INTG0" fieldName="status">
+        <DisplayLabel>Status</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength><sortABC>1</sortABC></Props>
+        <ListItems>
+          <ListItem id="20036" origId="NEW@20036" orderNo="0" source="S20659" name="Complete" code="complete" isDefault="F"/>
+          <ListItem id="20037" origId="NEW@20037" orderNo="1" source="S20659" name="Failed" code="failed" isDefault="F"/>
+          <ListItem id="20038" origId="NEW@20038" orderNo="2" source="S20659" name="In Progress" code="in_progress" isDefault="F"/>
+          <ListItem id="20039" origId="NEW@20039" orderNo="3" source="S20659" name="In Queue" code="in_queue" isDefault="F"/>
+        </ListItems>
+      </DataFieldDef>
+      <DataFieldDef id="20660" origId="NEW@20660" objDef="20022" dataClassName="Pt_FieldText" uiClassName="Pt_TextArea" columnName="TXT0" fieldName="raw_errors">
+        <DisplayLabel>Raw Errors</DisplayLabel>
+        <Props><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength><rows>10</rows><cols>40</cols></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20661" origId="NEW@20661" objDef="20022" dataClassName="Pt_FieldText" uiClassName="Pt_TextArea" columnName="TXT1" fieldName="summarized_readable_errors">
+        <DisplayLabel>Summarized Errors</DisplayLabel>
+        <Props><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField><isTextIndex>1</isTextIndex><maxLength>0</maxLength><rows>4</rows><cols>40</cols></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20662" origId="NEW@20662" objDef="20022" dataClassName="Pt_FieldInt" uiClassName="Pt_IntInput" columnName="INTG1" fieldName="records_processed">
+        <DisplayLabel>Records Processed</DisplayLabel>
+        <Props><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+      <!-- Links to the location config so logs can be filtered per location -->
+      <DataFieldDef id="20663" origId="NEW@20663" objDef="20022" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" columnName="INTG2" fieldName="Rdutchielocationconfig">
+        <DisplayLabel>Location Config</DisplayLabel>
+        <Props><relId>20099</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><isTemplateField>1</isTemplateField></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+    <RelationshipDefs>
+      <RelationshipDef id="20099" origId="NEW@20099" relName="RDTPLLCF" objDefId1="20023" objDefId2="20022" singularName1="Dutchie Location Config" pluralName1="Dutchie Location Configs" singularName2="Dutchie Process Log" pluralName2="Dutchie Process Logs" isMultiple1="F" isMultiple2="T"/>
+    </RelationshipDefs>
+    <ListViews>
+      <ListView id="20700" origId="NEW@20700" objDefId="20022" isSystem="T">
+        <ViewName>All Dutchie Process Logs</ViewName>
+        <Props><columns>20650,20658,20663,20655,20653,20659</columns><defSortCol>20655</defSortCol><showActions>1</showActions><isSystem>1</isSystem><filterVersion>2</filterVersion></Props>
+      </ListView>
+    </ListViews>
+  </DataObjectDef>
+
+  <!-- ── Reverse-relationship back-refs on standard objects ────────────────
+    These DataFieldDefs register the reverse side of relationships on built-in
+    objects so Intacct can display related Dutchie records on the standard UI.
+    No custom fields are added to standard objects — these are display-only links.
+  -->
+
+  <!-- location: shows the Dutchie Location Config linked to this location -->
+  <DataObjectDef id="5003" origId="NEW@5003" objDefName="location" isStandard="true">
+    <DataFieldDefs>
+      <DataFieldDef id="20630" origId="NEW@20630" objDef="5003" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchielocationconfig">
+        <DisplayLabel>Dutchie Location Config</DisplayLabel>
+        <Props><relId>20103</relId><isSearchable>1</isSearchable><isTableColumn>1</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+  </DataObjectDef>
+
+  <!-- customer: cross-reference for Dutchie patient → Intacct customer matching,
+       plus the reverse links from field and location config relationships -->
+  <DataObjectDef id="5026" origId="NEW@5026" objDefName="customer" isStandard="true">
+    <customFields>
+      <customField>
+        <customFieldId>DUTCHIE_CUSTOMER_ID</customFieldId>
+        <type>text</type>
+        <ownerObject>customer</ownerObject>
+        <label>Dutchie - Patient/Customer ID</label>
+        <dataDescription><text><length>50</length></text></dataDescription>
+        <required>false</required><hidden>false</hidden><active>true</active>
+        <description>Dutchie patient or customer GUID used to match this Intacct customer during transaction sync.</description>
+      </customField>
+    </customFields>
+    <DataFieldDefs>
+      <DataFieldDef id="20631" origId="NEW@20631" objDef="5026" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchiefieldconfig">
+        <DisplayLabel>Dutchie Field Configs</DisplayLabel>
+        <Props><relId>20091</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20632" origId="NEW@20632" objDef="5026" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchielocationconfig">
+        <DisplayLabel>Dutchie Location Configs</DisplayLabel>
+        <Props><relId>20105</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+  </DataObjectDef>
+
+  <DataObjectDef id="5001" origId="NEW@5001" objDefName="glaccount" isStandard="true">
+    <DataFieldDefs>
+      <DataFieldDef id="20633" origId="NEW@20633" objDef="5001" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchiefieldconfig">
+        <DisplayLabel>Dutchie Field Configs</DisplayLabel>
+        <Props><relId>20090</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+  </DataObjectDef>
+
+  <DataObjectDef id="5002" origId="NEW@5002" objDefName="department" isStandard="true">
+    <DataFieldDefs>
+      <DataFieldDef id="20634" origId="NEW@20634" objDef="5002" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchiefieldconfig">
+        <DisplayLabel>Dutchie Field Configs</DisplayLabel>
+        <Props><relId>20092</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20635" origId="NEW@20635" objDef="5002" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchielocationconfig">
+        <DisplayLabel>Dutchie Location Configs</DisplayLabel>
+        <Props><relId>20106</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+  </DataObjectDef>
+
+  <DataObjectDef id="5044" origId="NEW@5044" objDefName="item" isStandard="true">
+    <DataFieldDefs>
+      <DataFieldDef id="20636" origId="NEW@20636" objDef="5044" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchiefieldconfig">
+        <DisplayLabel>Dutchie Field Configs</DisplayLabel>
+        <Props><relId>20093</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+      <DataFieldDef id="20637" origId="NEW@20637" objDef="5044" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchielocationconfig">
+        <DisplayLabel>Dutchie Location Configs</DisplayLabel>
+        <Props><relId>20107</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+  </DataObjectDef>
+
+  <DataObjectDef id="5020" origId="NEW@5020" objDefName="class" isStandard="true">
+    <DataFieldDefs>
+      <DataFieldDef id="20638" origId="NEW@20638" objDef="5020" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchiefieldconfig">
+        <DisplayLabel>Dutchie Field Configs</DisplayLabel>
+        <Props><relId>20094</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+  </DataObjectDef>
+
+  <DataObjectDef id="5076" origId="NEW@5076" objDefName="gljournal" isStandard="true">
+    <DataFieldDefs>
+      <DataFieldDef id="20639" origId="NEW@20639" objDef="5076" dataClassName="Pt_FieldRelationship" uiClassName="Pt_Relationship" fieldName="Rdutchiemasterconfig">
+        <DisplayLabel>Dutchie Master Configs</DisplayLabel>
+        <Props><relId>20097</relId><isSearchable>1</isSearchable><isTableColumn>0</isTableColumn><noClone>1</noClone></Props>
+      </DataFieldDef>
+    </DataFieldDefs>
+  </DataObjectDef>
+
+</DataObjectDefs>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MENUS
+     ════════════════════════════════════════════════════════════════════════ -->
+<Menus>
+  <Menu id="20097" origId="NEW@20097" objDefId="20021" orderNo="1" pageType="5">
+    <DisplayName>Dutchie Master Configuration</DisplayName>
+    <Menus>
+      <Menu id="20098" origId="NEW@20098" objDefId="20021" orderNo="1" parentId="20097" pageType="5"><DisplayName>List</DisplayName></Menu>
+      <Menu id="20099" origId="NEW@20099" objDefId="20021" orderNo="2" parentId="20097" pageType="4"><DisplayName>Add</DisplayName></Menu>
+    </Menus>
+  </Menu>
+  <Menu id="20108" origId="NEW@20108" objDefId="20023" orderNo="2" pageType="5">
+    <DisplayName>Dutchie Location Configuration</DisplayName>
+    <Menus>
+      <Menu id="20109" origId="NEW@20109" objDefId="20023" orderNo="1" parentId="20108" pageType="5"><DisplayName>List</DisplayName></Menu>
+      <Menu id="20110" origId="NEW@20110" objDefId="20023" orderNo="2" parentId="20108" pageType="4"><DisplayName>Add</DisplayName></Menu>
+    </Menus>
+  </Menu>
+  <Menu id="20092" origId="NEW@20092" objDefId="20020" orderNo="3" pageType="5">
+    <DisplayName>Dutchie Field Configurations</DisplayName>
+    <Menus>
+      <Menu id="20093" origId="NEW@20093" objDefId="20020" orderNo="1" parentId="20092" pageType="5"><DisplayName>List</DisplayName></Menu>
+      <Menu id="20094" origId="NEW@20094" objDefId="20020" orderNo="2" parentId="20092" pageType="4"><DisplayName>Add</DisplayName></Menu>
+      <Menu id="20095" origId="NEW@20095" objDefId="20020" orderNo="3" parentId="20092" pageType="11"><DisplayName>Import</DisplayName><PageURL>pt_import.phtml</PageURL></Menu>
+    </Menus>
+  </Menu>
+  <Menu id="20102" origId="NEW@20102" objDefId="20022" orderNo="4" parentId="-1" pageType="5">
+    <DisplayName>Dutchie Process Logs</DisplayName>
+    <Menus>
+      <Menu id="20103" origId="NEW@20103" objDefId="20022" orderNo="1" parentId="20102" pageType="5"><DisplayName>List</DisplayName></Menu>
+    </Menus>
+  </Menu>
+</Menus>
+
+<WebPages></WebPages>
+<Portals></Portals>
+<Version>1</Version>
+<MetaData>
+  <PublishedFrom>OXG</PublishedFrom>
+  <PublishedBy>AcadiaLogic</PublishedBy>
+</MetaData>
+</Application>
