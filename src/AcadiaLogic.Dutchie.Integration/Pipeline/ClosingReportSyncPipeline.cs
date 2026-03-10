@@ -7,53 +7,101 @@ namespace AcadiaLogic.Dutchie.Integration.Pipeline;
 
 /// <summary>
 /// Orchestrates: pull closing report from Dutchie → map to JournalEntryPayload → post to ERP.
+/// The caller (worker) provides the per-location <see cref="IReportingClient"/> and
+/// <see cref="ErpMappingConfig"/> so a single pipeline instance can serve all locations.
 /// </summary>
 public sealed class ClosingReportSyncPipeline
 {
     public const string JobName = "ClosingReport";
 
-    private readonly IReportingClient _reporting;
     private readonly IErpConnector _erp;
-    private readonly IErpConfigProvider _config;
     private readonly ISyncStateStore _state;
     private readonly ILogger<ClosingReportSyncPipeline> _logger;
 
     public ClosingReportSyncPipeline(
-        IReportingClient reporting,
         IErpConnector erp,
-        IErpConfigProvider config,
         ISyncStateStore state,
         ILogger<ClosingReportSyncPipeline> logger)
     {
-        _reporting = reporting;
-        _erp = erp;
-        _config = config;
-        _state = state;
+        _erp    = erp;
+        _state  = state;
         _logger = logger;
     }
 
     /// <summary>
-    /// Syncs a specific date range. Called by the worker on its schedule.
+    /// Syncs a specific date range for the given location.
+    /// Writes a <c>dutchie_process_log</c> record to Intacct on both success and failure.
     /// </summary>
-    public async Task RunAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken = default)
+    /// <param name="reporting">Per-location Dutchie API client (credentials already set by caller).</param>
+    /// <param name="mappingConfig">GL mapping config for this location.</param>
+    public async Task RunAsync(
+        DateTimeOffset from,
+        DateTimeOffset to,
+        IReportingClient reporting,
+        ErpMappingConfig mappingConfig,
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Closing report sync: {From} → {To}", from, to);
+        // Use a per-location state key so multiple locations don't share a single watermark.
+        var stateKey = mappingConfig.LocationId is null
+            ? JobName
+            : $"{JobName}-{mappingConfig.LocationId}";
 
-        var mappingConfig = await _config.GetConfigAsync(cancellationToken).ConfigureAwait(false);
-        var report = await _reporting.GetClosingReportAsync(from, to, cancellationToken).ConfigureAwait(false);
-        var entry = BuildJournalEntry(report, from, to, mappingConfig);
+        _logger.LogInformation("Closing report sync [{Location}]: {From} → {To}",
+            mappingConfig.LocationId ?? "global", from, to);
 
-        if (entry.Lines.Count == 0)
+        try
         {
-            _logger.LogWarning("Closing report for {From}–{To} produced no GL lines. Nothing posted.", from, to);
-            return;
+            var report = await reporting.GetClosingReportAsync(from, to, cancellationToken).ConfigureAwait(false);
+            var entry = BuildJournalEntry(report, from, to, mappingConfig);
+
+            if (entry.Lines.Count == 0)
+            {
+                _logger.LogWarning(
+                    "Closing report [{Location}] for {From}–{To} produced no GL lines. Nothing posted.",
+                    mappingConfig.LocationId ?? "global", from, to);
+                await _erp.WriteProcessLogAsync(new ProcessLogEntry
+                {
+                    JobName                = JobName,
+                    Status                 = ProcessLogEntry.Statuses.Complete,
+                    LocationConfigRecordNo = mappingConfig.LocationConfigRecordNo,
+                }, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+
+            var key = await _erp.PostJournalEntryAsync(entry, cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Journal entry posted [{Location}] ({Mode}). ERP key: {Key}",
+                mappingConfig.LocationId ?? "global", entry.PostAsDraft ? "Draft" : "Live", key);
+
+            await _state.SetLastSyncTimeAsync(stateKey, to, cancellationToken).ConfigureAwait(false);
+
+            await _erp.WriteProcessLogAsync(new ProcessLogEntry
+            {
+                JobName                = JobName,
+                Status                 = ProcessLogEntry.Statuses.Complete,
+                RecordsProcessed       = 1,
+                LocationConfigRecordNo = mappingConfig.LocationConfigRecordNo,
+            }, CancellationToken.None).ConfigureAwait(false);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Closing report sync failed [{Location}] for {From}–{To}",
+                mappingConfig.LocationId ?? "global", from, to);
 
-        var key = await _erp.PostJournalEntryAsync(entry, cancellationToken).ConfigureAwait(false);
-        _logger.LogInformation("Journal entry posted ({Mode}). ERP key: {Key}",
-            entry.PostAsDraft ? "Draft" : "Live", key);
+            await _erp.WriteProcessLogAsync(new ProcessLogEntry
+            {
+                JobName                = JobName,
+                Status                 = ProcessLogEntry.Statuses.Failed,
+                SummarizedErrors       = ex.Message,
+                RawErrors              = ex.ToString(),
+                LocationConfigRecordNo = mappingConfig.LocationConfigRecordNo,
+            }, CancellationToken.None).ConfigureAwait(false);
 
-        await _state.SetLastSyncTimeAsync(JobName, to, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 
     private JournalEntryPayload BuildJournalEntry(

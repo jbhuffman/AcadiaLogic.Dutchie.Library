@@ -7,6 +7,15 @@ namespace AcadiaLogic.Dutchie.Integration.Models;
 /// </summary>
 public sealed class ErpMappingConfig
 {
+    // ── Process log linking ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// RECORDNO of the <c>dutchie_location_config</c> record in Intacct.
+    /// Used to link <c>dutchie_process_log</c> entries to the location config after each sync run.
+    /// Populated by <c>PlatformAppErpConfigProvider</c>; null when using appsettings config.
+    /// </summary>
+    public string? LocationConfigRecordNo { get; init; }
+
     // ── Journal Entry settings ────────────────────────────────────────────────
 
     /// <summary>Intacct journal symbol (e.g. "GJ", "APJ"). Required for journal entries.</summary>

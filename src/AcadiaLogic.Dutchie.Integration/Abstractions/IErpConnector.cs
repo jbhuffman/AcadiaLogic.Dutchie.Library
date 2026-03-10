@@ -21,6 +21,13 @@ public interface IErpConnector
     Task<string> PostSalesTransactionAsync(SalesTransactionPayload transaction, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Writes a process log entry to the ERP after a sync run completes or fails.
+    /// Implementations must swallow all exceptions internally — a log write failure must never
+    /// crash the sync pipeline or suppress the original exception.
+    /// </summary>
+    Task WriteProcessLogAsync(ProcessLogEntry entry, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Returns the ERP connector name (e.g. "SageIntacct", "QuickBooks").
     /// Used for logging and diagnostics.
     /// </summary>

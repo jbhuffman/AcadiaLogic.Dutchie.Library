@@ -3,6 +3,7 @@ using AcadiaLogic.Dutchie.Integration.Models;
 using AcadiaLogic.Dutchie.Intacct.Configuration;
 using Intacct.SDK;
 using Intacct.SDK.Exceptions;
+using Intacct.SDK.Functions;
 using Intacct.SDK.Functions.AccountsReceivable;
 using Intacct.SDK.Functions.GeneralLedger;
 using Intacct.SDK.Xml;
@@ -107,6 +108,43 @@ public sealed class IntacctErpConnector : IErpConnector
         return result.Key;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// All exceptions are caught and logged as warnings. A process-log write failure must never
+    /// propagate to the calling pipeline or mask the original sync exception.
+    /// </remarks>
+    public async Task WriteProcessLogAsync(ProcessLogEntry entry, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var fn = new ProcessLogCreateFunction(entry);
+            var client = BuildClient();
+            var response = await client.Execute(fn, new RequestConfig()).ConfigureAwait(false);
+            var result = response.Results?.FirstOrDefault();
+
+            if (result?.Status != "success")
+            {
+                var errors = result?.Errors != null ? string.Join("; ", result.Errors) : "(no detail)";
+                _logger.LogWarning(
+                    "Intacct rejected dutchie_process_log create for job {Job}: {Errors}",
+                    entry.JobName, errors);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Process log written for job {Job} (status={Status}, records={Records}). Intacct key: {Key}",
+                    entry.JobName, entry.Status, entry.RecordsProcessed, result.Key);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Best-effort: swallow and warn — never let log write failure affect the worker.
+            _logger.LogWarning(ex,
+                "Failed to write dutchie_process_log to Intacct for job {Job}. " +
+                "The sync run itself was not affected.", entry.JobName);
+        }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private OnlineClient BuildClient()
@@ -144,4 +182,53 @@ public sealed class IntacctErpConnector : IErpConnector
             result.Errors ?? []);
     }
 
+    // ── Platform App: process log create ─────────────────────────────────────
+
+    /// <summary>
+    /// Intacct SDK function that creates a <c>dutchie_process_log</c> custom object record.
+    /// Writes the Intacct XML Gateway <c>create</c> operation directly since there is no
+    /// typed SDK class for Platform App custom objects.
+    /// </summary>
+    private sealed class ProcessLogCreateFunction : AbstractFunction
+    {
+        private readonly ProcessLogEntry _entry;
+
+        public ProcessLogCreateFunction(ProcessLogEntry entry)
+            : base($"plog-{Guid.NewGuid():N}")
+        {
+            _entry = entry;
+        }
+
+        public override void WriteXml(ref IaXmlWriter xml)
+        {
+            xml.WriteStartElement("function");
+            xml.WriteAttribute("controlid", ControlId);
+
+            xml.WriteStartElement("create");
+            xml.WriteStartElement("dutchie_process_log");
+
+            xml.WriteElementString("job_name", _entry.JobName);
+            xml.WriteElementString("status", _entry.Status);
+            xml.WriteElementString("records_processed", _entry.RecordsProcessed.ToString());
+
+            if (!string.IsNullOrEmpty(_entry.RawErrors))
+            {
+                // Intacct text fields have a practical limit; truncate to avoid rejection.
+                var raw = _entry.RawErrors.Length > 4000
+                    ? _entry.RawErrors[..4000]
+                    : _entry.RawErrors;
+                xml.WriteElementString("raw_errors", raw);
+            }
+
+            if (!string.IsNullOrEmpty(_entry.SummarizedErrors))
+                xml.WriteElementString("summarized_readable_errors", _entry.SummarizedErrors);
+
+            if (!string.IsNullOrEmpty(_entry.LocationConfigRecordNo))
+                xml.WriteElementString("Rdutchielocationconfig", _entry.LocationConfigRecordNo);
+
+            xml.WriteEndElement(); // dutchie_process_log
+            xml.WriteEndElement(); // create
+            xml.WriteEndElement(); // function
+        }
+    }
 }

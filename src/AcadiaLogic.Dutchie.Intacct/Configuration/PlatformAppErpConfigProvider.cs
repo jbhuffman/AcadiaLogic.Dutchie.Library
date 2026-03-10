@@ -55,6 +55,71 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
         _logger  = logger;
     }
 
+    /// <summary>
+    /// Loads one <see cref="ErpMappingConfig"/> per <c>dutchie_location_config</c> record.
+    /// Uses three Intacct API calls regardless of location count:
+    /// master config, all location configs, all field configs (grouped in memory).
+    /// </summary>
+    public async Task<IReadOnlyList<ErpMappingConfig>> GetAllConfigsAsync(CancellationToken cancellationToken = default)
+    {
+        var client = BuildClient();
+
+        // ── 1. Master config ──────────────────────────────────────────────────
+        var masterRows = await QueryObjectAsync(
+            client,
+            MasterConfigObject,
+            ["RECORDNO", "RGLJOURNAL", "maximum_overshort", "is_live"],
+            filter: null,
+            cancellationToken).ConfigureAwait(false);
+
+        var master = masterRows.Select(DutchieMasterConfigRow.FromXElement).FirstOrDefault();
+
+        if (master is null)
+            _logger.LogWarning("No {Object} record found. Using defaults for all locations.", MasterConfigObject);
+
+        // ── 2. ALL location configs (no filter) ───────────────────────────────
+        var locationRows = await QueryObjectAsync(
+            client,
+            LocationConfigObject,
+            ["RECORDNO", "Rdutchiemasterconfig", "RLOC", "entity_id",
+             "dutchie_location_key", "dutchie_integrator_key",
+             "RCUSTOMER", "RDEPARTMENT", "RITEM"],
+            filter: null,
+            cancellationToken).ConfigureAwait(false);
+
+        var locations = locationRows.Select(DutchieLocationConfigRow.FromXElement).ToList();
+
+        if (locations.Count == 0)
+        {
+            _logger.LogWarning("No {Object} records found. No locations to sync.", LocationConfigObject);
+            return [];
+        }
+
+        _logger.LogInformation("Found {Count} {Object} record(s) to sync.", locations.Count, LocationConfigObject);
+
+        // ── 3. ALL field configs (no filter) — one round trip for all locations ─
+        var allFieldRows = await QueryObjectAsync(
+            client,
+            FieldConfigObject,
+            ["RECORDNO", "Rdutchielocationconfig", "input_type", "api_field", "credit_debit",
+             "RGLACCOUNT", "RCUSTOMER", "RDEPARTMENT", "RITEM", "RCLASS", "amount", "entry_type"],
+            filter: null,
+            cancellationToken).ConfigureAwait(false);
+
+        // Group field rows by the location config RECORDNO they belong to.
+        var fieldsByLocation = allFieldRows
+            .GroupBy(el => el.Element("Rdutchielocationconfig")?.Value?.Trim() ?? string.Empty)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        return locations.Select(loc =>
+        {
+            var locFields = fieldsByLocation.GetValueOrDefault(loc.RecordNo ?? string.Empty, []);
+            _logger.LogDebug("Location {LocationId} ({RecordNo}): {Count} field config row(s).",
+                loc.LocationId, loc.RecordNo, locFields.Count);
+            return BuildErpMappingConfig(master, loc, locFields);
+        }).ToList();
+    }
+
     public async Task<ErpMappingConfig> GetConfigAsync(CancellationToken cancellationToken = default)
     {
         var client = BuildClient();
@@ -258,6 +323,7 @@ public sealed class PlatformAppErpConfigProvider : IErpConfigProvider
             JournalSymbol           = master?.GlJournalSymbol      ?? "GJ",
             IsLive                  = master?.IsLive                ?? true,
             MaximumOverShort        = master?.MaximumOverShort      ?? 1m,
+            LocationConfigRecordNo  = location?.RecordNo,
             LocationId              = location?.LocationId,
             DepartmentId            = location?.DefaultDepartmentId,
             DefaultItemId           = location?.DefaultItemId,

@@ -5,6 +5,43 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 ---
 
+## 2026-03-09 — Multi-location sync loop
+
+**Added**
+
+- `src/AcadiaLogic.Dutchie.Library/Clients/IDutchieClientFactory.cs` — interface for creating per-location `IReportingClient` instances at runtime
+- `src/AcadiaLogic.Dutchie.Library/Clients/DutchieClientFactory.cs` — implementation using `IHttpClientFactory` (`Dutchie.PerLocation` named client, no auth handler); falls back to `DutchieClientOptions` when per-location credentials are absent
+
+**Changed**
+
+- `src/AcadiaLogic.Dutchie.Integration/Abstractions/IErpConfigProvider.cs` — added `GetAllConfigsAsync()` returning one `ErpMappingConfig` per location
+- `src/AcadiaLogic.Dutchie.Intacct/Configuration/AppSettingsErpConfigProvider.cs` — implemented `GetAllConfigsAsync()` as a single-item wrapper around `GetConfigAsync()`
+- `src/AcadiaLogic.Dutchie.Intacct/Configuration/PlatformAppErpConfigProvider.cs` — implemented `GetAllConfigsAsync()`: 3 Intacct API calls total (master + all locations + all field configs grouped in memory); populates `LocationConfigRecordNo` per location
+- `src/AcadiaLogic.Dutchie.Library/DutchieServiceCollectionExtensions.cs` — registered `Dutchie.PerLocation` named `HttpClient` (no auth handler) and `IDutchieClientFactory` singleton
+- `src/AcadiaLogic.Dutchie.Integration/Pipeline/ClosingReportSyncPipeline.cs` — removed `IReportingClient` and `IErpConfigProvider` from constructor; `RunAsync` now accepts them as parameters; per-location watermark key (`ClosingReport-{locationId}`)
+- `src/AcadiaLogic.Dutchie.Integration/Pipeline/TransactionSyncPipeline.cs` — same constructor and `RunAsync` signature change; per-location watermark key (`Transactions-{locationId}`)
+- `src/AcadiaLogic.Dutchie.Worker/Workers/ClosingReportWorker.cs` — injects `IErpConfigProvider` + `IDutchieClientFactory`; loops all location configs; per-location failure is caught and logged, remaining locations continue
+- `src/AcadiaLogic.Dutchie.Worker/Workers/TransactionSyncWorker.cs` — same multi-location loop pattern
+
+---
+
+## 2026-03-09 — Process log writer (dutchie_process_log)
+
+**Added**
+
+- `src/AcadiaLogic.Dutchie.Integration/Models/ProcessLogEntry.cs` — ERP-neutral model for sync run audit entries; includes `JobName`, `Status`, `RecordsProcessed`, `RawErrors`, `SummarizedErrors`, `LocationConfigRecordNo`, and a `Statuses` constants class
+
+**Changed**
+
+- `src/AcadiaLogic.Dutchie.Integration/Abstractions/IErpConnector.cs` — added `WriteProcessLogAsync(ProcessLogEntry, CancellationToken)` method; implementations must swallow all exceptions internally
+- `src/AcadiaLogic.Dutchie.Integration/Models/ErpMappingConfig.cs` — added `LocationConfigRecordNo` property to carry the `dutchie_location_config` RECORDNO through to process log writes
+- `src/AcadiaLogic.Dutchie.Intacct/Configuration/PlatformAppErpConfigProvider.cs` — populates `LocationConfigRecordNo = location?.RecordNo` in `BuildErpMappingConfig`
+- `src/AcadiaLogic.Dutchie.Intacct/Connectors/IntacctErpConnector.cs` — implemented `WriteProcessLogAsync` using a private `ProcessLogCreateFunction : AbstractFunction` nested class that writes the `dutchie_process_log` create XML directly; exceptions are swallowed and logged as warnings
+- `src/AcadiaLogic.Dutchie.Integration/Pipeline/ClosingReportSyncPipeline.cs` — wrapped `RunAsync` body in try/catch; writes `complete` or `failed` process log after each run; cancellation is not logged as failure
+- `src/AcadiaLogic.Dutchie.Integration/Pipeline/TransactionSyncPipeline.cs` — same process log wrapping; failed transaction IDs are collected and included in `SummarizedErrors`; status is `failed` when any individual transaction posting failed
+
+---
+
 ## 2026-03-09 — Docker and Docker Compose support
 
 **Added**

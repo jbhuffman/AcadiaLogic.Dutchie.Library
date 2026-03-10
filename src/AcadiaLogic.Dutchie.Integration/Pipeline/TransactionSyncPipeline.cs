@@ -8,79 +8,125 @@ namespace AcadiaLogic.Dutchie.Integration.Pipeline;
 
 /// <summary>
 /// Orchestrates: pull transactions from Dutchie → map to SalesTransactionPayload → post to ERP.
-/// Uses last-modified watermark for incremental sync.
+/// Uses a per-location last-modified watermark for incremental sync.
+/// The caller (worker) provides the per-location <see cref="IReportingClient"/> and
+/// <see cref="ErpMappingConfig"/> so a single pipeline instance can serve all locations.
 /// </summary>
 public sealed class TransactionSyncPipeline
 {
     public const string JobName = "Transactions";
 
-    private readonly IReportingClient _reporting;
     private readonly IErpConnector _erp;
-    private readonly IErpConfigProvider _config;
     private readonly ISyncStateStore _state;
     private readonly ILogger<TransactionSyncPipeline> _logger;
 
     public TransactionSyncPipeline(
-        IReportingClient reporting,
         IErpConnector erp,
-        IErpConfigProvider config,
         ISyncStateStore state,
         ILogger<TransactionSyncPipeline> logger)
     {
-        _reporting = reporting;
-        _erp = erp;
-        _config = config;
-        _state = state;
+        _erp    = erp;
+        _state  = state;
         _logger = logger;
     }
 
     /// <summary>
-    /// Pulls transactions modified since the last successful sync and posts each to the ERP.
+    /// Pulls transactions modified since the last successful sync for the given location
+    /// and posts each to the ERP.
+    /// Writes a <c>dutchie_process_log</c> record to Intacct on both success and failure.
+    /// Individual transaction failures are counted and included in the log but do not abort the run.
     /// </summary>
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    /// <param name="reporting">Per-location Dutchie API client (credentials already set by caller).</param>
+    /// <param name="mappingConfig">GL mapping config for this location.</param>
+    public async Task RunAsync(
+        IReportingClient reporting,
+        ErpMappingConfig mappingConfig,
+        CancellationToken cancellationToken = default)
     {
-        var mappingConfig = await _config.GetConfigAsync(cancellationToken).ConfigureAwait(false);
-        var lastSync = await _state.GetLastSyncTimeAsync(JobName, cancellationToken).ConfigureAwait(false);
+        // Per-location watermark key so each location maintains its own cursor.
+        var stateKey = mappingConfig.LocationId is null
+            ? JobName
+            : $"{JobName}-{mappingConfig.LocationId}";
+
+        var lastSync = await _state.GetLastSyncTimeAsync(stateKey, cancellationToken).ConfigureAwait(false);
         var now = DateTimeOffset.UtcNow;
 
-        _logger.LogInformation("Transaction sync: from {From} to {To}", lastSync, now);
+        _logger.LogInformation("Transaction sync [{Location}]: from {From} to {To}",
+            mappingConfig.LocationId ?? "global", lastSync, now);
 
-        var transactions = await _reporting.GetTransactionsAsync(
-            new TransactionQueryRequest
-            {
-                FromLastModifiedDateUtc = lastSync,
-                ToLastModifiedDateUtc = now,
-                IncludeDetail = true,
-                IncludeTaxes = true,
-                IncludeFeesAndDonations = true
-            },
-            cancellationToken).ConfigureAwait(false);
-
-        _logger.LogInformation("Retrieved {Count} transactions", transactions.Count);
-
-        var posted = 0;
-        var failed = 0;
-
-        foreach (var tx in transactions.Where(t => !t.IsVoid && !t.IsReturn))
+        try
         {
-            try
+            var transactions = await reporting.GetTransactionsAsync(
+                new TransactionQueryRequest
+                {
+                    FromLastModifiedDateUtc = lastSync,
+                    ToLastModifiedDateUtc = now,
+                    IncludeDetail = true,
+                    IncludeTaxes = true,
+                    IncludeFeesAndDonations = true
+                },
+                cancellationToken).ConfigureAwait(false);
+
+            _logger.LogInformation("Retrieved {Count} transactions", transactions.Count);
+
+            var posted = 0;
+            var failedIds = new List<string>();
+
+            foreach (var tx in transactions.Where(t => !t.IsVoid && !t.IsReturn))
             {
-                var payload = MapTransaction(tx, mappingConfig);
-                var key = await _erp.PostSalesTransactionAsync(payload, cancellationToken).ConfigureAwait(false);
-                _logger.LogDebug("Transaction {Id} posted. ERP key: {Key}", tx.TransactionId, key);
-                posted++;
+                try
+                {
+                    var payload = MapTransaction(tx, mappingConfig);
+                    var key = await _erp.PostSalesTransactionAsync(payload, cancellationToken).ConfigureAwait(false);
+                    _logger.LogDebug("Transaction {Id} posted. ERP key: {Key}", tx.TransactionId, key);
+                    posted++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to post transaction {Id}", tx.TransactionId);
+                    failedIds.Add(tx.TransactionId.ToString());
+                }
             }
-            catch (Exception ex)
+
+            _logger.LogInformation("Transaction sync complete [{Location}]. Posted: {Posted}, Failed: {Failed}",
+                mappingConfig.LocationId ?? "global", posted, failedIds.Count);
+
+            if (failedIds.Count == 0)
+                await _state.SetLastSyncTimeAsync(stateKey, now, cancellationToken).ConfigureAwait(false);
+
+            // Write process log — status is failed when any transactions could not be posted
+            // so that operators can identify the run and reprocess the failed IDs.
+            var hasFailures = failedIds.Count > 0;
+            await _erp.WriteProcessLogAsync(new ProcessLogEntry
             {
-                _logger.LogError(ex, "Failed to post transaction {Id}", tx.TransactionId);
-                failed++;
-            }
+                JobName                = JobName,
+                Status                 = hasFailures ? ProcessLogEntry.Statuses.Failed : ProcessLogEntry.Statuses.Complete,
+                RecordsProcessed       = posted,
+                SummarizedErrors       = hasFailures
+                    ? $"{failedIds.Count} transaction(s) failed to post: {string.Join(", ", failedIds)}"
+                    : null,
+                LocationConfigRecordNo = mappingConfig.LocationConfigRecordNo,
+            }, CancellationToken.None).ConfigureAwait(false);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Transaction sync failed");
 
-        _logger.LogInformation("Transaction sync complete. Posted: {Posted}, Failed: {Failed}", posted, failed);
+            await _erp.WriteProcessLogAsync(new ProcessLogEntry
+            {
+                JobName                = JobName,
+                Status                 = ProcessLogEntry.Statuses.Failed,
+                SummarizedErrors       = ex.Message,
+                RawErrors              = ex.ToString(),
+                LocationConfigRecordNo = mappingConfig.LocationConfigRecordNo,
+            }, CancellationToken.None).ConfigureAwait(false);
 
-        if (failed == 0)
-            await _state.SetLastSyncTimeAsync(JobName, now, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
     }
 
     private static SalesTransactionPayload MapTransaction(Transaction tx, ErpMappingConfig cfg)

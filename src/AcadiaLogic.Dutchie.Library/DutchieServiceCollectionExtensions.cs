@@ -7,8 +7,10 @@ namespace AcadiaLogic.Dutchie;
 
 public static class DutchieServiceCollectionExtensions
 {
-    internal const string ReportingClientName = "Dutchie.Reporting";
-    internal const string ProductClientName = "Dutchie.Product";
+    internal const string ReportingClientName    = "Dutchie.Reporting";
+    internal const string ProductClientName      = "Dutchie.Product";
+    // Named client with no auth handler — used by IDutchieClientFactory to stamp per-location credentials.
+    internal const string PerLocationClientName  = "Dutchie.PerLocation";
 
     /// <summary>
     /// Registers Dutchie POS API clients with the DI container.
@@ -38,6 +40,11 @@ public static class DutchieServiceCollectionExtensions
             .AddHttpClient<IProductClient, ProductClient>(ProductClientName, ConfigureHttpClient)
             .AddHttpMessageHandler<DutchieAuthHandler>();
 
+        // Bare named client (no auth handler) used by IDutchieClientFactory for per-location auth.
+        services.AddHttpClient(PerLocationClientName, ConfigureHttpClient);
+
+        services.AddSingleton<IDutchieClientFactory, DutchieClientFactory>();
+
         return services;
     }
 
@@ -60,6 +67,11 @@ public static class DutchieServiceCollectionExtensions
         services
             .AddHttpClient<IProductClient, ProductClient>(ProductClientName, ConfigureHttpClient)
             .AddHttpMessageHandler<DutchieAuthHandler>();
+
+        // Bare named client (no auth handler) used by IDutchieClientFactory for per-location auth.
+        services.AddHttpClient(PerLocationClientName, ConfigureHttpClient);
+
+        services.AddSingleton<IDutchieClientFactory, DutchieClientFactory>();
 
         return services;
     }

@@ -20,4 +20,7 @@ public sealed class AppSettingsErpConfigProvider : IErpConfigProvider
 
     public Task<ErpMappingConfig> GetConfigAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(_config);
+
+    public Task<IReadOnlyList<ErpMappingConfig>> GetAllConfigsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<ErpMappingConfig>>([_config]);
 }
