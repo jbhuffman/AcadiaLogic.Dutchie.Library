@@ -5,23 +5,39 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 ---
 
+## 2026-03-30 — PascalCase rename (C# conventions)
+
+**Changed**
+
+- `dutchie-library.slnx` → `DutchieLibrary.slnx` — solution file renamed to PascalCase
+- `src/dutchie-library/` → `src/DutchieLibrary/` — project folder and `.csproj` renamed; `AssemblyName` updated to `DutchieLibrary`
+- `src/dutchie-integration/` → `src/DutchieIntegration/` — project folder and `.csproj` renamed; `AssemblyName` updated to `DutchieIntegration`; `ProjectReference` path updated
+- `src/dutchie-intacct/` → `src/DutchieIntacct/` — project folder and `.csproj` renamed; `AssemblyName` updated to `DutchieIntacct`; `ProjectReference` path updated
+- `src/dutchie-worker/` → `src/DutchieWorker/` — project folder and `.csproj` renamed; `ProjectReference` paths updated
+- `platform-app/` → `PlatformApp/` — platform app folder renamed to PascalCase
+- `Dockerfile` — updated all `COPY`/`RUN` paths and `ENTRYPOINT` to `DutchieWorker.dll`
+- `docker-compose.yml` — updated health check to `DutchieWorker.dll`
+- `CLAUDE.md`, `README.md`, `AGENT.md`, `DEPLOY.md`, `FEATURES.md` — all path and project name references updated to PascalCase
+
+---
+
 ## 2026-03-09 — Multi-location sync loop
 
 **Added**
 
-- `src/AcadiaLogic.Dutchie.Library/Clients/IDutchieClientFactory.cs` — interface for creating per-location `IReportingClient` instances at runtime
-- `src/AcadiaLogic.Dutchie.Library/Clients/DutchieClientFactory.cs` — implementation using `IHttpClientFactory` (`Dutchie.PerLocation` named client, no auth handler); falls back to `DutchieClientOptions` when per-location credentials are absent
+- `src/dutchie-library/Clients/IDutchieClientFactory.cs` — interface for creating per-location `IReportingClient` instances at runtime
+- `src/dutchie-library/Clients/DutchieClientFactory.cs` — implementation using `IHttpClientFactory` (`Dutchie.PerLocation` named client, no auth handler); falls back to `DutchieClientOptions` when per-location credentials are absent
 
 **Changed**
 
-- `src/AcadiaLogic.Dutchie.Integration/Abstractions/IErpConfigProvider.cs` — added `GetAllConfigsAsync()` returning one `ErpMappingConfig` per location
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/AppSettingsErpConfigProvider.cs` — implemented `GetAllConfigsAsync()` as a single-item wrapper around `GetConfigAsync()`
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/PlatformAppErpConfigProvider.cs` — implemented `GetAllConfigsAsync()`: 3 Intacct API calls total (master + all locations + all field configs grouped in memory); populates `LocationConfigRecordNo` per location
-- `src/AcadiaLogic.Dutchie.Library/DutchieServiceCollectionExtensions.cs` — registered `Dutchie.PerLocation` named `HttpClient` (no auth handler) and `IDutchieClientFactory` singleton
-- `src/AcadiaLogic.Dutchie.Integration/Pipeline/ClosingReportSyncPipeline.cs` — removed `IReportingClient` and `IErpConfigProvider` from constructor; `RunAsync` now accepts them as parameters; per-location watermark key (`ClosingReport-{locationId}`)
-- `src/AcadiaLogic.Dutchie.Integration/Pipeline/TransactionSyncPipeline.cs` — same constructor and `RunAsync` signature change; per-location watermark key (`Transactions-{locationId}`)
-- `src/AcadiaLogic.Dutchie.Worker/Workers/ClosingReportWorker.cs` — injects `IErpConfigProvider` + `IDutchieClientFactory`; loops all location configs; per-location failure is caught and logged, remaining locations continue
-- `src/AcadiaLogic.Dutchie.Worker/Workers/TransactionSyncWorker.cs` — same multi-location loop pattern
+- `src/dutchie-integration/Abstractions/IErpConfigProvider.cs` — added `GetAllConfigsAsync()` returning one `ErpMappingConfig` per location
+- `src/dutchie-intacct/Configuration/AppSettingsErpConfigProvider.cs` — implemented `GetAllConfigsAsync()` as a single-item wrapper around `GetConfigAsync()`
+- `src/dutchie-intacct/Configuration/PlatformAppErpConfigProvider.cs` — implemented `GetAllConfigsAsync()`: 3 Intacct API calls total (master + all locations + all field configs grouped in memory); populates `LocationConfigRecordNo` per location
+- `src/dutchie-library/DutchieServiceCollectionExtensions.cs` — registered `Dutchie.PerLocation` named `HttpClient` (no auth handler) and `IDutchieClientFactory` singleton
+- `src/dutchie-integration/Pipeline/ClosingReportSyncPipeline.cs` — removed `IReportingClient` and `IErpConfigProvider` from constructor; `RunAsync` now accepts them as parameters; per-location watermark key (`ClosingReport-{locationId}`)
+- `src/dutchie-integration/Pipeline/TransactionSyncPipeline.cs` — same constructor and `RunAsync` signature change; per-location watermark key (`Transactions-{locationId}`)
+- `src/dutchie-worker/Workers/ClosingReportWorker.cs` — injects `IErpConfigProvider` + `IDutchieClientFactory`; loops all location configs; per-location failure is caught and logged, remaining locations continue
+- `src/dutchie-worker/Workers/TransactionSyncWorker.cs` — same multi-location loop pattern
 
 ---
 
@@ -29,16 +45,16 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 **Added**
 
-- `src/AcadiaLogic.Dutchie.Integration/Models/ProcessLogEntry.cs` — ERP-neutral model for sync run audit entries; includes `JobName`, `Status`, `RecordsProcessed`, `RawErrors`, `SummarizedErrors`, `LocationConfigRecordNo`, and a `Statuses` constants class
+- `src/dutchie-integration/Models/ProcessLogEntry.cs` — ERP-neutral model for sync run audit entries; includes `JobName`, `Status`, `RecordsProcessed`, `RawErrors`, `SummarizedErrors`, `LocationConfigRecordNo`, and a `Statuses` constants class
 
 **Changed**
 
-- `src/AcadiaLogic.Dutchie.Integration/Abstractions/IErpConnector.cs` — added `WriteProcessLogAsync(ProcessLogEntry, CancellationToken)` method; implementations must swallow all exceptions internally
-- `src/AcadiaLogic.Dutchie.Integration/Models/ErpMappingConfig.cs` — added `LocationConfigRecordNo` property to carry the `dutchie_location_config` RECORDNO through to process log writes
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/PlatformAppErpConfigProvider.cs` — populates `LocationConfigRecordNo = location?.RecordNo` in `BuildErpMappingConfig`
-- `src/AcadiaLogic.Dutchie.Intacct/Connectors/IntacctErpConnector.cs` — implemented `WriteProcessLogAsync` using a private `ProcessLogCreateFunction : AbstractFunction` nested class that writes the `dutchie_process_log` create XML directly; exceptions are swallowed and logged as warnings
-- `src/AcadiaLogic.Dutchie.Integration/Pipeline/ClosingReportSyncPipeline.cs` — wrapped `RunAsync` body in try/catch; writes `complete` or `failed` process log after each run; cancellation is not logged as failure
-- `src/AcadiaLogic.Dutchie.Integration/Pipeline/TransactionSyncPipeline.cs` — same process log wrapping; failed transaction IDs are collected and included in `SummarizedErrors`; status is `failed` when any individual transaction posting failed
+- `src/dutchie-integration/Abstractions/IErpConnector.cs` — added `WriteProcessLogAsync(ProcessLogEntry, CancellationToken)` method; implementations must swallow all exceptions internally
+- `src/dutchie-integration/Models/ErpMappingConfig.cs` — added `LocationConfigRecordNo` property to carry the `dutchie_location_config` RECORDNO through to process log writes
+- `src/dutchie-intacct/Configuration/PlatformAppErpConfigProvider.cs` — populates `LocationConfigRecordNo = location?.RecordNo` in `BuildErpMappingConfig`
+- `src/dutchie-intacct/Connectors/IntacctErpConnector.cs` — implemented `WriteProcessLogAsync` using a private `ProcessLogCreateFunction : AbstractFunction` nested class that writes the `dutchie_process_log` create XML directly; exceptions are swallowed and logged as warnings
+- `src/dutchie-integration/Pipeline/ClosingReportSyncPipeline.cs` — wrapped `RunAsync` body in try/catch; writes `complete` or `failed` process log after each run; cancellation is not logged as failure
+- `src/dutchie-integration/Pipeline/TransactionSyncPipeline.cs` — same process log wrapping; failed transaction IDs are collected and included in `SummarizedErrors`; status is `failed` when any individual transaction posting failed
 
 ---
 
@@ -87,15 +103,15 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 **Added**
 
-- `src/AcadiaLogic.Dutchie.Worker/nlog.config` — NLog configuration with three targets: coloured console (Info+), rolling file `logs/dutchie-worker.log` (Debug+, 30-day retention), errors-only file `logs/dutchie-errors.log` (Error+, 90-day retention); Microsoft internals suppressed below Warn
-- `src/AcadiaLogic.Dutchie.Worker/AcadiaLogic.Dutchie.Worker.csproj` — added `NLog.Extensions.Hosting 5.3.15`; added `nlog.config` as `PreserveNewest` content item
+- `src/dutchie-worker/nlog.config` — NLog configuration with three targets: coloured console (Info+), rolling file `logs/dutchie-worker.log` (Debug+, 30-day retention), errors-only file `logs/dutchie-errors.log` (Error+, 90-day retention); Microsoft internals suppressed below Warn
+- `src/dutchie-worker/dutchie-worker.csproj` — added `NLog.Extensions.Hosting 5.3.15`; added `nlog.config` as `PreserveNewest` content item
 
 **Changed**
 
-- `src/AcadiaLogic.Dutchie.Library/Clients/DutchieClientBase.cs` — added `ILogger` constructor parameter and retry loop in `GetAsync`: up to 5 retries on HTTP 500, 3-second fixed delay between attempts; logs `Warning` per retry and `Error` when retries exhausted
-- `src/AcadiaLogic.Dutchie.Library/Clients/ReportingClient.cs` — added `ILogger<ReportingClient>` constructor parameter, passed to base
-- `src/AcadiaLogic.Dutchie.Library/Clients/ProductClient.cs` — added `ILogger<ProductClient>` constructor parameter, passed to base
-- `src/AcadiaLogic.Dutchie.Worker/Program.cs` — added `builder.Logging.ClearProviders()` and `builder.Logging.AddNLog()` to wire NLog as the MEL provider
+- `src/dutchie-library/Clients/DutchieClientBase.cs` — added `ILogger` constructor parameter and retry loop in `GetAsync`: up to 5 retries on HTTP 500, 3-second fixed delay between attempts; logs `Warning` per retry and `Error` when retries exhausted
+- `src/dutchie-library/Clients/ReportingClient.cs` — added `ILogger<ReportingClient>` constructor parameter, passed to base
+- `src/dutchie-library/Clients/ProductClient.cs` — added `ILogger<ProductClient>` constructor parameter, passed to base
+- `src/dutchie-worker/Program.cs` — added `builder.Logging.ClearProviders()` and `builder.Logging.AddNLog()` to wire NLog as the MEL provider
 
 ---
 
@@ -111,16 +127,16 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
   - All custom fields removed from standard `location` object (DUTCHIE_ENABLED, DUTCHIE_LIVE, DUTCHIE_LOCATION_KEY, DUTCHIE_INTEGRATOR_KEY, DUTCHIE_LOCATION_TYPE); back-reference display fields only
   - `DUTCHIE_CUSTOMER_ID` custom field retained on standard `customer` object for patient cross-reference
   - Added menu for `dutchie_location_config` (id 20108)
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/DutchieMasterConfigRow.cs` — simplified to company-level fields only (GlJournalSymbol, MaximumOverShort, IsLive)
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/PlatformAppErpConfigProvider.cs` — updated query flow to three objects: master (no filter) → location config (RLOC filter) → field config (Rdutchielocationconfig filter); uses `DutchieMasterConfigRow.FromXElement` and `DutchieLocationConfigRow.FromXElement`
+- `src/dutchie-intacct/Configuration/DutchieMasterConfigRow.cs` — simplified to company-level fields only (GlJournalSymbol, MaximumOverShort, IsLive)
+- `src/dutchie-intacct/Configuration/PlatformAppErpConfigProvider.cs` — updated query flow to three objects: master (no filter) → location config (RLOC filter) → field config (Rdutchielocationconfig filter); uses `DutchieMasterConfigRow.FromXElement` and `DutchieLocationConfigRow.FromXElement`
 
 **Added**
 
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/DutchieLocationConfigRow.cs` — new model for `dutchie_location_config` rows; includes `FromXElement` factory; fields: RecordNo, MasterConfigRecordNo, LocationId, EntityId, DutchieLocationKey, DutchieIntegratorKey, DefaultCustomerId, DefaultDepartmentId, DefaultItemId
+- `src/dutchie-intacct/Configuration/DutchieLocationConfigRow.cs` — new model for `dutchie_location_config` rows; includes `FromXElement` factory; fields: RecordNo, MasterConfigRecordNo, LocationId, EntityId, DutchieLocationKey, DutchieIntegratorKey, DefaultCustomerId, DefaultDepartmentId, DefaultItemId
 
 **Changed**
 
-- `src/AcadiaLogic.Dutchie.Integration/Models/ErpMappingConfig.cs` — added `DefaultItemId`, `DutchieLocationKey`, `DutchieIntegratorKey` properties
+- `src/dutchie-integration/Models/ErpMappingConfig.cs` — added `DefaultItemId`, `DutchieLocationKey`, `DutchieIntegratorKey` properties
 
 ---
 
@@ -129,7 +145,7 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 **Changed**
 
 - `platform-app/DutchieIntegration.xml` — added fields to `dutchie_master_config`: `entity_id` (STR0), `dutchie_location_key` (STR1), `dutchie_integrator_key` (STR2), `RDEPARTMENT` (INTG3, relId 20100), `RITEM` (INTG4, relId 20101); added back-ref fields on standard `department` and `item` objects
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/DutchieMasterConfigRow.cs` — added EntityId, DutchieLocationKey, DutchieIntegratorKey, DefaultDepartmentId, DefaultItemId; added `FromXElement` factory method
+- `src/dutchie-intacct/Configuration/DutchieMasterConfigRow.cs` — added EntityId, DutchieLocationKey, DutchieIntegratorKey, DefaultDepartmentId, DefaultItemId; added `FromXElement` factory method
 
 ---
 
@@ -138,8 +154,8 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 **Added**
 
 - `platform-app/DutchieIntegration.xml` — Intacct Platform Application definition; three custom objects: `dutchie_config` (GL mapping rows), `dutchie_master_config` (per-location journal/customer/tolerance), `dutchie_process_log` (sync audit log); custom fields on standard `location` (credentials, enabled flag, location type) and `customer` (DUTCHIE_CUSTOMER_ID) objects; import map for bulk field config entry
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/PlatformAppErpConfigProvider.cs` — full implementation querying `dutchie_master_config` and `dutchie_config` via Intacct SDK `QueryFunction`; builds `ErpMappingConfig` from Platform App data
-- `src/AcadiaLogic.Dutchie.Intacct/Configuration/IntacctOptions.cs` — added `LocationId` property for scoping Platform App queries
+- `src/dutchie-intacct/Configuration/PlatformAppErpConfigProvider.cs` — full implementation querying `dutchie_master_config` and `dutchie_config` via Intacct SDK `QueryFunction`; builds `ErpMappingConfig` from Platform App data
+- `src/dutchie-intacct/Configuration/IntacctOptions.cs` — added `LocationId` property for scoping Platform App queries
 
 ---
 
@@ -147,10 +163,10 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 **Changed**
 
-- `src/AcadiaLogic.Dutchie.Library/Clients/DutchieClientBase.cs` — replaced `System.Text.Json` with `Newtonsoft.Json`; `CamelCasePropertyNamesContractResolver`, `NullValueHandling.Ignore`, `StringEnumConverter(CamelCaseNamingStrategy)`
-- `src/AcadiaLogic.Dutchie.Integration/State/JsonFileSyncStateStore.cs` — replaced `System.Text.Json` with `Newtonsoft.Json`; `Formatting.Indented`
-- `src/AcadiaLogic.Dutchie.Library/AcadiaLogic.Dutchie.Library.csproj` — added `Newtonsoft.Json 13.0.3`
-- `src/AcadiaLogic.Dutchie.Integration/AcadiaLogic.Dutchie.Integration.csproj` — added `Newtonsoft.Json 13.0.3`
+- `src/dutchie-library/Clients/DutchieClientBase.cs` — replaced `System.Text.Json` with `Newtonsoft.Json`; `CamelCasePropertyNamesContractResolver`, `NullValueHandling.Ignore`, `StringEnumConverter(CamelCaseNamingStrategy)`
+- `src/dutchie-integration/State/JsonFileSyncStateStore.cs` — replaced `System.Text.Json` with `Newtonsoft.Json`; `Formatting.Indented`
+- `src/dutchie-library/dutchie-library.csproj` — added `Newtonsoft.Json 13.0.3`
+- `src/dutchie-integration/dutchie-integration.csproj` — added `Newtonsoft.Json 13.0.3`
 
 ---
 
@@ -160,12 +176,12 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 - `.env.example` — credential template for Dutchie and Intacct environment variables
 - `.gitignore` — initial file; excludes `.env`, `bin/`, `obj/`, `.vs/`, `sync-state.json`, `secrets.json`, `.DS_Store`
-- `src/AcadiaLogic.Dutchie.Worker/AcadiaLogic.Dutchie.Worker.csproj` — added `DotNetEnv 3.1.1`
+- `src/dutchie-worker/dutchie-worker.csproj` — added `DotNetEnv 3.1.1`
 
 **Changed**
 
-- `src/AcadiaLogic.Dutchie.Worker/Program.cs` — added `Env.Load(".env", new LoadOptions(Env.TraversePath(), clobberExistingVars: false))` before host builder; switched Intacct registration to `.UsePlatformAppConfig()` by default
-- `src/AcadiaLogic.Dutchie.Worker/appsettings.json` — removed `DutchieErpMappings` section; all GL mapping config now sourced from Intacct Platform App; added `Intacct:LocationId`
+- `src/dutchie-worker/Program.cs` — added `Env.Load(".env", new LoadOptions(Env.TraversePath(), clobberExistingVars: false))` before host builder; switched Intacct registration to `.UsePlatformAppConfig()` by default
+- `src/dutchie-worker/appsettings.json` — removed `DutchieErpMappings` section; all GL mapping config now sourced from Intacct Platform App; added `Intacct:LocationId`
 
 ---
 
@@ -173,8 +189,8 @@ Format: `YYYY-MM-DD HH:MM UTC` — `Category` — description. New entries go at
 
 **Added**
 
-- `AcadiaLogic.Dutchie.Library.slnx` — solution file (.slnx format)
-- `src/AcadiaLogic.Dutchie.Library/` — Dutchie POS REST API client: `DutchieClientBase`, `ReportingClient`, `ProductClient`, `DutchieAuthHandler` (HTTP Basic auth), `DutchieApiException`, `DutchieClientOptions`, `DutchieServiceCollectionExtensions`; models: `ClosingReport`, `Transaction`, `RegisterTransaction`, `RegisterCashSummary`, `TransactionQueryRequest`, `ProductDetail`
-- `src/AcadiaLogic.Dutchie.Integration/` — ERP-neutral abstractions (`IErpConnector`, `IErpConfigProvider`, `ISyncStateStore`), sync pipelines (`ClosingReportSyncPipeline`, `TransactionSyncPipeline`), payloads (`JournalEntryPayload`, `SalesTransactionPayload`), `ErpMappingConfig`, `JsonFileSyncStateStore`, `IntegrationServiceCollectionExtensions`
-- `src/AcadiaLogic.Dutchie.Intacct/` — Sage Intacct SDK connector (`IntacctErpConnector`), `AppSettingsErpConfigProvider`, `IntacctOptions`, `IntacctServiceCollectionExtensions` with `UsePlatformAppConfig()` chaining
-- `src/AcadiaLogic.Dutchie.Worker/` — Generic Host worker service: `ClosingReportWorker` (24h), `TransactionSyncWorker` (15m), `WorkerOptions`, `Program.cs`, `appsettings.json`
+- `dutchie-library.slnx` — solution file (.slnx format)
+- `src/dutchie-library/` — Dutchie POS REST API client: `DutchieClientBase`, `ReportingClient`, `ProductClient`, `DutchieAuthHandler` (HTTP Basic auth), `DutchieApiException`, `DutchieClientOptions`, `DutchieServiceCollectionExtensions`; models: `ClosingReport`, `Transaction`, `RegisterTransaction`, `RegisterCashSummary`, `TransactionQueryRequest`, `ProductDetail`
+- `src/dutchie-integration/` — ERP-neutral abstractions (`IErpConnector`, `IErpConfigProvider`, `ISyncStateStore`), sync pipelines (`ClosingReportSyncPipeline`, `TransactionSyncPipeline`), payloads (`JournalEntryPayload`, `SalesTransactionPayload`), `ErpMappingConfig`, `JsonFileSyncStateStore`, `IntegrationServiceCollectionExtensions`
+- `src/dutchie-intacct/` — Sage Intacct SDK connector (`IntacctErpConnector`), `AppSettingsErpConfigProvider`, `IntacctOptions`, `IntacctServiceCollectionExtensions` with `UsePlatformAppConfig()` chaining
+- `src/dutchie-worker/` — Generic Host worker service: `ClosingReportWorker` (24h), `TransactionSyncWorker` (15m), `WorkerOptions`, `Program.cs`, `appsettings.json`

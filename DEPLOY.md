@@ -1,4 +1,4 @@
-# Deployment Guide — AcadiaLogic.Dutchie.Library
+# Deployment Guide — DutchieLibrary
 
 This document covers everything needed to deploy the Dutchie → Sage Intacct integration worker to a new environment.
 
@@ -25,7 +25,7 @@ The integration reads all GL mapping configuration from three custom objects in 
 1. Log in to Sage Intacct as a Company Admin.
 2. Navigate to **Platform Services → Applications**.
 3. Click **Import / Update Application**.
-4. Upload `platform-app/DutchieIntegration.xml` from this repository.
+4. Upload `PlatformApp/DutchieIntegration.xml` from this repository.
 5. Confirm the import. The following objects will be created:
    - `dutchie_master_config` — company-level GL journal and tolerance settings
    - `dutchie_location_config` — per-location Dutchie credentials and default dimensions
@@ -62,13 +62,13 @@ After deploying the XML, enter your configuration data in Intacct:
 ### Build (verify)
 
 ```sh
-dotnet build AcadiaLogic.Dutchie.Library.slnx
+dotnet build DutchieLibrary.slnx
 ```
 
 ### Publish (self-contained, single-file)
 
 ```sh
-dotnet publish src/AcadiaLogic.Dutchie.Worker/AcadiaLogic.Dutchie.Worker.csproj \
+dotnet publish src/DutchieWorker/DutchieWorker.csproj \
   --configuration Release \
   --output ./publish
 ```
@@ -76,7 +76,7 @@ dotnet publish src/AcadiaLogic.Dutchie.Worker/AcadiaLogic.Dutchie.Worker.csproj 
 For a self-contained deployment (no .NET runtime required on target):
 
 ```sh
-dotnet publish src/AcadiaLogic.Dutchie.Worker/AcadiaLogic.Dutchie.Worker.csproj \
+dotnet publish src/DutchieWorker/DutchieWorker.csproj \
   --configuration Release \
   --self-contained true \
   --runtime linux-x64 \
@@ -147,8 +147,8 @@ Non-credential settings live in `appsettings.json` (which is committed). Overrid
 
 ```sh
 cd publish
-./AcadiaLogic.Dutchie.Worker    # Linux / macOS
-AcadiaLogic.Dutchie.Worker.exe  # Windows
+./DutchieWorker    # Linux / macOS
+DutchieWorker.exe  # Windows
 ```
 
 ### systemd (Linux server)
@@ -164,7 +164,7 @@ After=network.target
 Type=simple
 User=dutchie
 WorkingDirectory=/opt/dutchie-worker
-ExecStart=/opt/dutchie-worker/AcadiaLogic.Dutchie.Worker
+ExecStart=/opt/dutchie-worker/DutchieWorker
 Restart=always
 RestartSec=10
 EnvironmentFile=/opt/dutchie-worker/.env

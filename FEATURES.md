@@ -1,4 +1,4 @@
-# Features — AcadiaLogic.Dutchie.Library
+# Features — DutchieLibrary
 
 This document describes the features implemented in the current release and the features planned for future releases.
 
@@ -8,7 +8,7 @@ This document describes the features implemented in the current release and the 
 
 ### Dutchie POS API Client
 
-**Typed HTTP client** for the Dutchie POS REST API (`AcadiaLogic.Dutchie.Library`).
+**Typed HTTP client** for the Dutchie POS REST API (`DutchieLibrary`).
 
 - HTTP Basic authentication via `LocationKey:IntegratorKey` injected by a `DelegatingHandler` — no auth boilerplate in call sites.
 - Fully typed response models for:
@@ -78,7 +78,7 @@ This document describes the features implemented in the current release and the 
 
 ### ERP-Neutral Abstraction Layer
 
-**Pluggable connector architecture** (`AcadiaLogic.Dutchie.Integration`).
+**Pluggable connector architecture** (`DutchieIntegration`).
 
 - `IErpConnector` — post journal entries and AR invoices to any ERP.
 - `IErpConfigProvider` — load GL mapping configuration from any source.
@@ -90,7 +90,7 @@ This document describes the features implemented in the current release and the 
 
 ### Sage Intacct Connector
 
-**Full Intacct SDK integration** (`AcadiaLogic.Dutchie.Intacct`).
+**Full Intacct SDK integration** (`DutchieIntacct`).
 
 - Uses official `Intacct.SDK` 3.2.2.
 - Posts GL journal entries via `JournalEntryCreate` / `JournalEntryLineCreate`.

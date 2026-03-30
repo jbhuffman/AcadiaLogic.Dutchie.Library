@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DutchieIntacct/DutchieIntacct.csproj" />
+    <Project Path="src/DutchieIntegration/DutchieIntegration.csproj" />
+    <Project Path="src/DutchieLibrary/DutchieLibrary.csproj" />
+    <Project Path="src/DutchieWorker/DutchieWorker.csproj" />
+  </Folder>
+</Solution>

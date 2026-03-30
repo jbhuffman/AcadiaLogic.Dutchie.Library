@@ -33,7 +33,7 @@ services:
 
     # Health check: confirm the process is still running
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "AcadiaLogic.Dutchie.Worker.dll"]
+      test: ["CMD", "pgrep", "-f", "DutchieWorker.dll"]
       interval: 60s
       timeout: 10s
       retries: 3

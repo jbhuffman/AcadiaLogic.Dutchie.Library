@@ -1,4 +1,4 @@
-# AcadiaLogic.Dutchie.Library
+# DutchieLibrary
 
 A .NET 8 integration library and worker service that syncs **Dutchie POS** data to **Sage Intacct** (and future ERP targets) on a scheduled basis.
 
@@ -6,10 +6,10 @@ A .NET 8 integration library and worker service that syncs **Dutchie POS** data 
 
 | Project | Purpose |
 |---|---|
-| `AcadiaLogic.Dutchie.Library` | Typed HTTP client for the Dutchie POS REST API |
-| `AcadiaLogic.Dutchie.Integration` | ERP-neutral sync pipelines, abstractions, and state management |
-| `AcadiaLogic.Dutchie.Intacct` | Sage Intacct SDK connector and Platform App configuration provider |
-| `AcadiaLogic.Dutchie.Worker` | .NET Generic Host worker service running the two sync jobs |
+| `DutchieLibrary` | Typed HTTP client for the Dutchie POS REST API |
+| `DutchieIntegration` | ERP-neutral sync pipelines, abstractions, and state management |
+| `DutchieIntacct` | Sage Intacct SDK connector and Platform App configuration provider |
+| `DutchieWorker` | .NET Generic Host worker service running the two sync jobs |
 
 ---
 
@@ -17,12 +17,12 @@ A .NET 8 integration library and worker service that syncs **Dutchie POS** data 
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  AcadiaLogic.Dutchie.Worker (.NET Generic Host)                      │
+│  DutchieWorker (.NET Generic Host)                      │
 │                                                                      │
 │  ClosingReportWorker (24h)          TransactionSyncWorker (15m)      │
 │         │                                    │                       │
 │  ┌──────▼──────────────────────────────────▼──────┐                 │
-│  │         AcadiaLogic.Dutchie.Integration         │                 │
+│  │       DutchieIntegration             │                 │
 │  │  ClosingReportSyncPipeline  TransactionSyncPipeline               │
 │  │  IErpConnector (abstract)   ISyncStateStore (abstract)            │
 │  └──────┬──────────────────────────────────┬───────┘                 │
@@ -84,7 +84,7 @@ The `.env` file is optional — real environment variables always take precedenc
 ### Run the Worker
 
 ```sh
-cd src/AcadiaLogic.Dutchie.Worker
+cd src/DutchieWorker
 dotnet run
 ```
 
@@ -137,7 +137,7 @@ All settings live in `appsettings.json` and can be overridden by environment var
 
 The Intacct-side configuration is managed entirely through a **Dutchie Integration Platform Application** — a set of custom objects deployed to your Intacct company. No custom fields are added to standard Intacct objects; all configuration lives in purpose-built custom objects that link to standard objects via relationships.
 
-The Platform App XML is located at [`platform-app/DutchieIntegration.xml`](platform-app/DutchieIntegration.xml).
+The Platform App XML is located at [`PlatformApp/DutchieIntegration.xml`](PlatformApp/DutchieIntegration.xml).
 
 ### Object Hierarchy
 
@@ -226,7 +226,7 @@ Written automatically by each sync job run.
 
 ## Dutchie API Client
 
-The `AcadiaLogic.Dutchie.Library` project provides a fully typed HTTP client for the Dutchie POS REST API.
+The `DutchieLibrary` project provides a fully typed HTTP client for the Dutchie POS REST API.
 
 ### Registration
 
@@ -269,7 +269,7 @@ The client automatically retries on HTTP 500 responses (transient Dutchie servic
 
 ## ERP Integration Abstractions
 
-The `AcadiaLogic.Dutchie.Integration` project defines ERP-neutral interfaces that decouple the sync pipelines from any specific ERP.
+The `DutchieIntegration` project defines ERP-neutral interfaces that decouple the sync pipelines from any specific ERP.
 
 ### Key Interfaces
 
@@ -331,7 +331,7 @@ services.AddIntacctConnector(configuration);
 
 ## Logging
 
-The worker uses [NLog](https://nlog-project.org/) via the Microsoft.Extensions.Logging bridge. Configuration is in [`nlog.config`](src/AcadiaLogic.Dutchie.Worker/nlog.config).
+The worker uses [NLog](https://nlog-project.org/) via the Microsoft.Extensions.Logging bridge. Configuration is in [`nlog.config`](src/DutchieWorker/nlog.config).
 
 | Target | Level | Location |
 |---|---|---|
@@ -346,24 +346,24 @@ Microsoft framework internals are suppressed below `Warn` to reduce noise.
 ## Solution Structure
 
 ```
-AcadiaLogic.Dutchie.Library.slnx
-├── platform-app/
+DutchieLibrary.slnx
+├── PlatformApp/
 │   └── DutchieIntegration.xml          Intacct Platform Application definition
 ├── src/
-│   ├── AcadiaLogic.Dutchie.Library/
+│   ├── DutchieLibrary/
 │   │   ├── Authentication/             HTTP Basic auth delegating handler
 │   │   ├── Clients/                    IReportingClient, IProductClient + implementations
 │   │   └── Models/                     Dutchie API response models
-│   ├── AcadiaLogic.Dutchie.Integration/
+│   ├── DutchieIntegration/
 │   │   ├── Abstractions/               IErpConnector, IErpConfigProvider, ISyncStateStore
 │   │   ├── Models/                     ERP-neutral payload models + ErpMappingConfig
 │   │   ├── Pipeline/                   ClosingReportSyncPipeline, TransactionSyncPipeline
 │   │   └── State/                      JsonFileSyncStateStore
-│   ├── AcadiaLogic.Dutchie.Intacct/
+│   ├── DutchieIntacct/
 │   │   ├── Configuration/              IntacctOptions, AppSettings/PlatformApp config providers
 │   │   │                               DutchieMasterConfigRow, DutchieLocationConfigRow
 │   │   └── Connectors/                 IntacctErpConnector
-│   └── AcadiaLogic.Dutchie.Worker/
+│   └── DutchieWorker/
 │       ├── Workers/                    ClosingReportWorker, TransactionSyncWorker
 │       ├── nlog.config                 NLog targets and rules
 │       ├── appsettings.json

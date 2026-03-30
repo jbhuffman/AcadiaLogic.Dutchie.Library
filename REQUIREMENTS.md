@@ -1,4 +1,4 @@
-# Requirements — AcadiaLogic.Dutchie.Library
+# Requirements — DutchieLibrary
 
 This document defines the functional and non-functional requirements for the Dutchie POS → Sage Intacct integration.
 
